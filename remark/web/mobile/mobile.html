@@ -1,0 +1,256 @@
+{{ define "remark/web/mobile/mobile.html" }}
+<!DOCTYPE html>
+<html class="no-js css-menubar" lang="zh">
+  <head>
+    {{template "remark/web/comm/header_meta.html" .}}
+    
+    <title>Mobile</title>
+
+    {{template "remark/web/comm/header_css.html" .}}
+    {{template "remark/web/comm/header_js.html" .}}
+  </head>
+  <body class="animsition app-travel">
+    {{template "remark/web/comm/nav_top.html" .}}
+    {{template "remark/web/comm/nav_left.html" .}}
+    {{template "remark/web/comm/nav_grid.html" .}}
+
+    <!-- Page -->
+    <div class="page">
+      <div class="page-header">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item"><a href="/">网络</a></li>
+          <li class="breadcrumb-item active">无线拨号</li>
+        </ol>
+      </div>
+      <div class="page-content container-fluid">
+        <!-- Panel Tabs -->
+        <div class="panel">
+          <!-- <div class="panel-heading">
+            <h3 class="panel-title">Tabs</h3>
+            
+            
+          </div> -->
+          <!-- <div class="panel-body container-fluid">
+            <input type="checkbox" data-plugin="switchery" checked />
+            <p>开启:</p><input type="checkbox" data-plugin="switchery" data-color="#17b3a3" checked>
+             </input>
+          </div> -->
+          <div class="panel-body container-fluid">
+
+            <div class="page-aside-inner nav-tabs-animate">
+              <div class="page-nav-tabs">
+                <ul class="nav nav-tabs nav-tabs-line" role="tablist">
+                  <li class="nav-item" role="presentation">
+                    <a class="nav-link active" data-toggle="tab" href="#dial_stat" aria-controls="travel-spots"
+                      aria-expanded="false" role="tab">拨号状态</a>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <a class="nav-link" data-toggle="tab" href="#dial_config" aria-controls="travel-hotels"
+                      aria-expanded="true" role="tab">拨号配置</a>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <a class="nav-link" data-toggle="tab" href="#dial_plan" aria-controls="travel-hotels"
+                      aria-expanded="true" role="tab">拨号计划</a>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <a class="nav-link" data-toggle="tab" href="#white_list" aria-controls="travel-reviews"
+                      aria-expanded="false" role="tab">白名单</a>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <a class="nav-link" data-toggle="tab" href="#modem_info" aria-controls="travel-reviews"
+                      aria-expanded="false" role="tab">模块信息</a>
+                  </li>
+                </ul>
+              </div>
+              <div class="page-aside-content page-aside-scroll">
+                <div data-role="container">
+                  <div data-role="content">
+                    <div class="tab-content pt-20 pl-30">
+
+                      <div class="tab-pane animation-fade active" id="dial_stat" role="tabpanel" aria-expanded="ture">
+                        <div class="row row-lg">
+                          <div class="col-xl-5">
+                            <table class="table table-bordered">
+                              <thead>
+                                <tr>
+                                  <th>设备参数</th>
+                                  <th>设备状态</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  <td class="text-middle">实时模式</td>
+                                  <td>
+                                    <span class="badge badge-outline badge-primary">TDDLTE</span>
+                                    <span class="badge badge-outline badge-warning">GSM</span>
+                                    <span class="badge badge-outline badge-danger">None</span>
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td class="text-middle">SIM状态</td>
+                                  <td>
+                                    <span class="badge badge-primary">正常</span>
+                                    <span class="badge badge-warning">卡已欠费</span>
+                                    <span class="badge badge-danger">卡不存在</span>
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td class="text-middle">信号强度</td>
+                                  <td>
+                                    <span class="badge badge-outline badge-primary">100</span>
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td class="text-middle">拨号状态</td>
+                                  <td>
+                                    <span class="badge badge-round badge-primary">连接成功</span>
+                                    <span class="badge badge-round badge-dark">正在连接</span>
+                                    <span class="badge badge-round badge-danger">断开连接</span>
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td class="text-middle">IP&nbsp&nbsp&nbsp地址</td>
+                                  <td>
+                                    <span class="badge badge-outline badge-primary">192.168.1.1</span>
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td class="text-middle">掩码地址</td>
+                                  <td>
+                                    <span class="badge badge-outline badge-primary">192.168.1.1</span>
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td class="text-middle">网关地址</td>
+                                  <td>
+                                    <span class="badge badge-outline badge-primary">192.168.1.1</span>
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td class="text-middle">DNS地址</td>
+                                  <td>
+                                    <span class="badge badge-outline badge-primary">192.168.1.1</span>
+                                  </td>
+                                </tr>
+                                <tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+    
+                      <div class="tab-pane animation-fade" id="dial_config" role="tabpanel" aria-expanded="false">
+                        <div class="row row-lg">
+                          <div class="col-xl-5">
+                            <form>
+                              <div class="form-group row">
+                                <label class="col-md-3 col-form-label">拨号模式: </label>
+                                <div class="col-md-9">
+                                  <select data-plugin="selectpicker" data-style="btn-outline btn-primary">
+                                    <option>自动</option>
+                                    <option>手动</option>
+                                  </select>
+                                </div>
+                              </div>
+                              <div class="form-group row">
+                                <label class="col-md-3 col-form-label">网络切换: </label>
+                                <div class="col-md-9">
+                                  <select data-plugin="selectpicker" data-style="btn-outline btn-primary">
+                                    <option>自动</option>
+                                    <option>5G</option>
+                                    <option>4G</option>
+                                    <option>3G</option>
+                                    <option>2G</option>
+                                  </select>
+                                </div>
+                              </div>
+                              <div class="form-group row">
+                                <label class="col-md-3 col-form-label">下线时间: </label>
+                                <div class="col-md-9">
+                                  <input type="text" class="form-control" name="name" placeholder="3600秒" autocomplete="off"
+                                  />
+                                </div>
+                              </div>
+                              <div class="form-group row">
+                                <label class="col-md-3 col-form-label">用户名: </label>
+                                <div class="col-md-9">
+                                  <input type="text" class="form-control" name="name" placeholder="ctlte" autocomplete="off"
+                                  />
+                                </div>
+                              </div>
+                              <div class="form-group row">
+                                <label class="col-md-3 col-form-label">密码: </label>
+                                <div class="col-md-9">
+                                  <input type="text" class="form-control" name="name" placeholder="ctlte" autocomplete="off"
+                                  />
+                                </div>
+                              </div>
+                              <div class="form-group row">
+                                <label class="col-md-3 col-form-label">APN: </label>
+                                <div class="col-md-9">
+                                  <input type="text" class="form-control" name="name" placeholder="ctlte.cn" autocomplete="off"
+                                  />
+                                </div>
+                                <label class="col-md-3 col-form-label">MTU: </label>
+                                <div class="col-md-9">
+                                  <input type="text" class="form-control" name="name" placeholder="1400" autocomplete="off"
+                                  />
+                                </div>
+                              </div>
+                              <div class="form-group row">
+                                <legend class="col-md-3 col-form-label">Your Gender: </legend>
+                                <div class="col-md-9 d-flex align-items-center">
+                                  <div class="radio-custom radio-default radio-inline">
+                                    <input type="radio" id="_inputHorizontalMale" name="inputRadiosMale2" />
+                                    <label for="inputHorizontalMale">Male</label>
+                                  </div>
+                                  <div class="radio-custom radio-default radio-inline">
+                                    <input type="radio" id="_inputHorizontalFemale" name="inputRadiosMale2" checked
+                                    />
+                                    <label for="inputHorizontalFemale">Female</label>
+                                  </div>
+                                </div>
+                              </div>
+                              <div class="form-group row">
+                                <div class="col-md-9">
+                                  <button type="button" class="btn btn-primary">保存 </button>
+                                  <button type="reset" class="btn btn-default btn-outline">重置</button>
+                                </div>
+                              </div>
+                            </form>
+                          </div>
+                          
+                        </div>
+                      </div>
+                      <div class="tab-pane animation-fade page-content-table bg-white" id="dial_plan" role="tabpanel"
+                        aria-expanded="false">
+    
+                      </div>
+
+                      <div class="tab-pane animation-fade page-content-table bg-white" id="white_list" role="tabpanel"
+                        aria-expanded="false">
+    
+                      </div>
+    
+                      <div class="tab-pane animation-fade page-content-table bg-white" id="modem_info" role="tabpanel"
+                      aria-expanded="false">
+    
+                      </div>
+    
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+    
+
+    {{template "remark/web/comm/footer_main.html" .}}
+    {{template "remark/web/comm/footer_js.html" .}}
+  </body>
+</html>
+{{ end }}
