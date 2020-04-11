@@ -4,7 +4,103 @@
     <div>
       <div>
         <ul class="site-menu" data-plugin="menu">
-          <li class="site-menu-category">General</li>
+          <li class="site-menu-category">基本设置</li>
+
+          <!-- 系统设置 -->
+          <li class="site-menu-item has-sub">
+            <a href="javascript:void(0)">
+                    <i class="site-menu-icon wb-dashboard" aria-hidden="true"></i>
+                    <span class="site-menu-title">系统</span>
+                        <div class="site-menu-badge">
+                            <span class="badge badge-pill badge-success">3</span>
+                        </div>
+                </a>
+            <ul class="site-menu-sub">
+              <li class="site-menu-item active">
+                <a class="animsition-link" href="/">
+                  <span class="site-menu-title">系统配置</span>
+                </a>
+              </li>
+            </ul>
+          </li>
+          <!-- 系统设置 -->
+
+          <!-- 网络设置 -->
+          <li class="site-menu-item has-sub">
+            <a href="javascript:void(0)">
+                    <i class="site-menu-icon wb-signal" aria-hidden="true"></i>
+                    <span class="site-menu-title">网络</span>
+                        <div class="site-menu-badge">
+                            <span class="badge badge-pill badge-success">3</span>
+                        </div>
+                </a>
+            <ul class="site-menu-sub">
+              <li class="site-menu-item active">
+                <a class="animsition-link" href="/mobile">
+                  <i class="site-menu-icon wb-mobile" aria-hidden="true"></i>
+                  <span class="site-menu-title">Mobile</span>
+                </a>
+              </li>
+              <li class="site-menu-item">
+                <a class="animsition-link" href="/webroot/classic/base/html/dashboard/v2.html">
+                  <span class="site-menu-title">DDNS</span>
+                </a>
+              </li>
+              <li class="site-menu-item">
+                <a class="animsition-link" href="/webroot/classic/base/html/dashboard/ecommerce.html">
+                  <span class="site-menu-title">WIFI</span>
+                </a>
+              </li>
+              <li class="site-menu-item">
+                <a class="animsition-link" href="/webroot/classic/base/html/dashboard/analytics.html">
+                  <span class="site-menu-title">UPnP</span>
+                </a>
+              </li>
+              <li class="site-menu-item">
+                <a class="animsition-link" href="/webroot/classic/base/html/dashboard/team.html">
+                  <span class="site-menu-title">DLNA</span>
+                </a>
+              </li>
+              <li class="site-menu-item">
+                <a class="animsition-link" href="/webroot/classic/base/html/dashboard/team.html">
+                  <span class="site-menu-title">SMTP</span>
+                </a>
+              </li>              
+            </ul>
+          </li>
+          <!-- 网络设置 -->
+
+          <!-- 存储设置 -->
+          <li class="site-menu-item has-sub">
+              <a href="javascript:void(0)">
+                    <i class="site-menu-icon wb-cloud" aria-hidden="true"></i>
+                    <span class="site-menu-title">存储</span>
+                    <div class="site-menu-badge">
+                        <span class="badge badge-pill badge-success">3</span>
+                    </div>
+              </a>
+              <ul class="site-menu-sub">
+                <li class="site-menu-item active">
+                    <a class="animsition-link" href="/">
+                      <i class="site-menu-icon wb-file" aria-hidden="true"></i>
+                      <span class="site-menu-title">文件存储</span>
+                    </a>
+                </li>
+                <li class="site-menu-item active">
+                  <a class="animsition-link" href="/">
+                    <span class="site-menu-title">对象存储</span>
+                  </a>
+                </li>
+                <li class="site-menu-item active">
+                  <a class="animsition-link" href="/">
+                    <span class="site-menu-title">块存储</span>
+                  </a>
+                </li>
+              </ul>
+          </li>
+          <!-- 存储设置 -->
+
+          <!-- 后台 -->
           <li class="site-menu-item has-sub">
             <a href="javascript:void(0)">
                     <i class="site-menu-icon wb-dashboard" aria-hidden="true"></i>
@@ -41,6 +137,7 @@
               </li>
             </ul>
           </li>
+          <!-- 后台 -->
           <li class="site-menu-item has-sub">
             <a href="javascript:void(0)">
                     <i class="site-menu-icon wb-layout" aria-hidden="true"></i>
@@ -882,7 +979,32 @@
               </li>
             </ul>
           </li>
-          <li class="site-menu-category">Apps</li>
+          <li class="site-menu-category">三方应用</li>
+          <li class="site-menu-item has-sub">
+            <a href="javascript:void(0)">
+                    <i class="site-menu-icon wb-grid-4" aria-hidden="true"></i>
+                    <span class="site-menu-title">插件中心</span>
+                            <span class="site-menu-arrow"></span>
+                </a>
+            <ul class="site-menu-sub">
+              <li class="site-menu-item">
+                <a class="animsition-link" href="/webroot/classic/base/html/apps/contacts/contacts.html">
+                  <span class="site-menu-title">下载</span>
+                </a>
+              </li>
+              <li class="site-menu-item">
+                <a class="animsition-link" href="/webroot/classic/base/html/apps/contacts/contacts.html">
+                  <span class="site-menu-title">上传</span>
+                </a>
+              </li>
+              <li class="site-menu-item">
+                <a class="animsition-link" href="/webroot/classic/base/html/apps/contacts/contacts.html">
+                  <span class="site-menu-title">管理</span>
+                </a>
+              </li>
+            </ul>
+          </li>
+
           <li class="site-menu-item has-sub">
             <a href="javascript:void(0)">
                     <i class="site-menu-icon wb-grid-4" aria-hidden="true"></i>
@@ -999,13 +1121,13 @@
   </div>
   <div class="site-menubar-footer">
     <a href="javascript: void(0);" class="fold-show" data-placement="top" data-toggle="tooltip"
-      data-original-title="Settings">
+      data-original-title="设置">
       <span class="icon wb-settings" aria-hidden="true"></span>
     </a>
-    <a href="javascript: void(0);" data-placement="top" data-toggle="tooltip" data-original-title="Lock">
+    <a href="/lock" data-placement="top" data-toggle="tooltip" data-original-title="锁屏">
       <span class="icon wb-eye-close" aria-hidden="true"></span>
     </a>
-    <a href="javascript: void(0);" data-placement="top" data-toggle="tooltip" data-original-title="Logout">
+    <a href="/login" data-placement="top" data-toggle="tooltip" data-original-title="退出">
       <span class="icon wb-power" aria-hidden="true"></span>
     </a>
   </div>

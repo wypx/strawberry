@@ -1,28 +1,25 @@
-{{ define "remark/web/error/403.html" }}
+{{ define "remark/web/login/maintain.html" }}
 <!DOCTYPE html>
-<html class="no-js css-menubar" lang="en">
+<html class="no-js css-menubar" lang="zh">
   <head>
     {{template "remark/web/comm/header_meta.html" .}}
     
-    <title>403</title>
+    <title>维护</title>
 
     {{template "remark/web/comm/header_css.html" .}}
     {{template "remark/web/comm/header_js.html" .}}
   </head>
-  <body class="animsition page-error page-error-403 layout-full">
+  <body class="animsition page-maintenance layout-full">
     {{template "remark/web/comm/nav_top.html" .}}
     {{template "remark/web/comm/nav_left.html" .}}
     {{template "remark/web/comm/nav_grid.html" .}}
 
     <!-- Page -->
-    <div class="page vertical-align text-center" data-animsition-in="fade-in" data-animsition-out="fade-out">
+    <div class="page vertical-align text-center" data-animsition-in="fade-in" data-animsition-out="fade-out">>
       <div class="page-content vertical-align-middle">
-        <header>
-          <h1 class="animation-slide-top">403</h1>
-          <p>页面丢失了 !</p>
-        </header>
-        <p class="error-advise">你可能希望回到主页</p>
-        <a class="btn btn-primary btn-round" href="/">去吧皮卡丘</a>
+        <i class="icon wb-settings icon-spin page-maintenance-icon" aria-hidden="true"></i>
+        <h2>正在维护中</h2>
+        <p>请耐心等待</p>
 
         <footer class="page-copyright page-copyright-inverse">
           <p>design by luotang.me</p>
@@ -46,9 +43,8 @@
     </div>
     <!-- End Page -->
 
-    {{template "remark/web/comm/footer_main.html" .}}
     {{template "remark/web/comm/footer_js.html" .}}
-
+    
     <script>
       (function(document, window, $){
         'use strict';
