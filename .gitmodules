@@ -1,0 +1,3 @@
+[submodule "thirdparty/gin"]
+	path = thirdparty/gin
+	url = https://github.com/gin-gonic/gin.git
