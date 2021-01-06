@@ -1,3 +1,6 @@
 [submodule "thirdparty/gin"]
 	path = thirdparty/gin
 	url = https://github.com/gin-gonic/gin.git
+[submodule "thirdparty/examples"]
+	path = thirdparty/examples
+	url = https://github.com/gin-gonic/examples.git
