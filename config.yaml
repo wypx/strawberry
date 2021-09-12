@@ -1,4 +1,0 @@
-addr: :8080
-
-dsn: "root"
-max_idle_conn: 100
