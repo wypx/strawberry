@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
-	Config "tomato/config"
+	Global "tomato/global"
 
 	"github.com/fatih/color"
 	"github.com/gin-contrib/sessions"
@@ -223,7 +223,7 @@ func LeakBucket() gin.HandlerFunc {
 	}
 }
 
-func InitializeRouter(cfg *Config.GlobalConfig) *gin.Engine {
+func InitializeRouter(env *Global.Environment) *gin.Engine {
 	// https://gin-gonic.com/zh-cn/docs/examples/run-multiple-service/
 	router := gin.Default()
 
@@ -293,7 +293,7 @@ func InitializeRouter(cfg *Config.GlobalConfig) *gin.Engine {
 	// router.StaticFS("/more_static", http.Dir("my_file_system"))
 	// router.StaticFile("/favicon.ico", "./resources/favicon.ico")
 
-	router.StaticFS(cfg.WebRelativePath, http.Dir(cfg.WebAbsolutePath))
+	router.StaticFS(env.WebRelativePath(), http.Dir(env.WebAbsolutePath()))
 	// https://gin-gonic.com/zh-cn/docs/examples/html-rendering/
 	// https://gin-gonic.com/zh-cn/docs/examples/multiple-template/
 	router.LoadHTMLGlob("/root/work/strawberry/web/static/*.html") //渲染html页面

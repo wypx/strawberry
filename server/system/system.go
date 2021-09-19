@@ -1,14 +1,25 @@
 package system
 
 import (
+	"fmt"
 	"log"
+	"os"
 	"runtime"
-	Config "tomato/config"
+	Global "tomato/global"
 
 	"github.com/gin-gonic/gin"
 )
 
-func InitializeLogger() {
+func InitializeEnv() {
+	if runtime.GOOS == "windows" {
+		log.Printf("Strawberry cannot run on windows")
+		log.Printf("Press any key to continue...")
+		_, _ = fmt.Scanf("\n")
+		os.Exit(1)
+	}
+}
+
+func InitializeLog() {
 	// 禁用控制台颜色，将日志写入文件时不需要控制台颜色。
 	// gin.DisableConsoleColor()
 	// 强制日志颜色化
@@ -26,10 +37,11 @@ func InitializeLogger() {
 	// log.SetOutput(gin.DefaultWriter)
 }
 
-func InitializeSystem(cfg *Config.GlobalConfig) {
-	InitializeLogger()
+func InitializeSystem(env *Global.Environment) {
+	InitializeEnv()
+	InitializeLog()
 
-	if cfg.WebServerEnv == "develop" {
+	if env.WebServerEnv() == "develop" {
 		gin.SetMode(gin.DebugMode)
 	} else {
 		gin.SetMode(gin.ReleaseMode)

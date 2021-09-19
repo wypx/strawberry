@@ -1,15 +1,15 @@
 package main
 
 import (
-	Config "tomato/config"
+	Global "tomato/global"
 	Router "tomato/router"
 	System "tomato/system"
 )
 
 func main() {
-	cfg := Config.GetGlobalConfig()
+	env := Global.GetEnvironmentConfig()
 
-	System.InitializeSystem(cfg)
+	System.InitializeSystem(env)
 
-	System.InitializeWebServer(cfg.WebServerAddr, Router.InitializeRouter(cfg))
+	System.InitializeWebServer(env.WebServerAddr(), Router.InitializeRouter(env))
 }
