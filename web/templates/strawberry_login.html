@@ -1,9 +1,8 @@
 {{ define "strawberry_login" }}
 <!DOCTYPE html>
 <html class="no-js css-menubar" lang="zh">
-  <head>
-    {{template "strawberry_header" .}}
-  </head>
+
+  {{template "strawberry_header" .}}
 
   <body class="animsition page-login-v3 layout-full">
     <!-- Page -->
@@ -25,7 +24,7 @@
               </div>
               <div class="form-group form-material floating" data-plugin="formMaterial">
                 <div style="height:10px"></div>
-                <input type="password" class="form-control" name="password" style="text-indent:9px"/>
+                <input type="password" class="form-control" name="password" style="text-indent:9px"  autocomplete="on"/>
                 <label class="floating-label">密码</label>
               </div>
               <div class="form-group clearfix">
@@ -64,7 +63,6 @@
     </div>
     <!-- End Page -->
 
- 
     {{template "strawberry_footer" .}}
 
     <script>

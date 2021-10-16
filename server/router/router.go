@@ -296,7 +296,7 @@ func InitializeRouter(env *Global.Environment) *gin.Engine {
 	router.StaticFS(env.WebRelativePath(), http.Dir(env.WebAbsolutePath()))
 	// https://gin-gonic.com/zh-cn/docs/examples/html-rendering/
 	// https://gin-gonic.com/zh-cn/docs/examples/multiple-template/
-	router.LoadHTMLGlob("/root/work/strawberry/web/static/*.html") //渲染html页面
+	router.LoadHTMLGlob(env.WebAbsolutePath() + "/templates/*.html") //渲染html页面
 
 	// 认证路由组
 	authorized := router.Group("/", AuthRequired())

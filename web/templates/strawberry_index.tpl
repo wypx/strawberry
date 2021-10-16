@@ -1,4 +1,4 @@
-{{ define "strawberry_mobile" }}
+{{ define "strawberry_mobile2" }}
 <!DOCTYPE html>
 <html class="no-js css-menubar" lang="zh">
   <head>

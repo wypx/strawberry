@@ -7,10 +7,10 @@ database-addr: '127.0.0.1'
 database-port: 8888
 
 web-relative-path: '/web'
-web-absolute-path: '/root/work/strawberry/web'
+web-absolute-path: '/Users/wypx/OneDrive/code.luotang.me/tomato/strawberry/web'
 web-upload-path: 'uploads'
 web-download-path: 'downloads'
-logger-path: '/root/work/strawberry/web/private'
+logger-path: '/Users/wypx/OneDrive/code.luotang.me/tomato/strawberry/web/private'
 logger-level: 'DEBUG'
 
 jwt-signing-key: 'qmPlus'
