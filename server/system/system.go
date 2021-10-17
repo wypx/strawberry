@@ -37,7 +37,35 @@ func InitializeLog() {
 	// log.SetOutput(gin.DefaultWriter)
 }
 
+func checkEnvironment() {
+	// if occupied, sockets, err := ports.IsPortOccupied([]string{v2rayAListeningPort + ":tcp"}); occupied {
+	// 	if err != nil {
+	// 		log.Fatal("netstat:", err)
+	// 	}
+	// 	for _, socket := range sockets {
+	// 		process, err := socket.Process()
+	// 		if err == nil {
+	// 			log.Fatal("Port %v is occupied by %v/%v", v2rayAListeningPort, process.Name, process.PID)
+	// 		}
+	// 	}
+	// }
+
+	// //等待网络连通
+	// v2ray.CheckAndStopTransparentProxy()
+	// for {
+	// 	addrs, err := resolv.LookupHost("apple.com")
+	// 	if err == nil && len(addrs) > 0 {
+	// 		break
+	// 	}
+	// 	log.Alert("waiting for network connected")
+	// 	time.Sleep(5 * time.Second)
+	// }
+	// log.Alert("network is connected")
+
+}
+
 func InitializeSystem(env *Global.Environment) {
+	checkEnvironment()
 	InitializeEnv()
 	InitializeLog()
 

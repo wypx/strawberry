@@ -13,6 +13,7 @@ import (
 )
 
 func InitializeWebServer(addr string, router *gin.Engine) {
+
 	// ref: https://gin-gonic.com/zh-cn/docs/examples/graceful-restart-or-stop/
 	// https://github.com/gin-gonic/examples/tree/master/graceful-shutdown
 	// ref: https://www.cnblogs.com/cjyangblog/p/14695850.html

@@ -50,13 +50,17 @@ func (a *User) Login(c *gin.Context) {
 		log.Printf("user: " + username + " pass: " + password)
 
 		if len(username) == 0 || len(password) == 0 {
-			rsp := Response{
-				Code:    50001,
-				Status:  "error",
-				Message: "user or pass cannot be empty",
-				Data:    "",
-			}
-			c.JSON(http.StatusOK, rsp)
+			// rsp := Response{
+			// 	Code:    50001,
+			// 	Status:  "error",
+			// 	Message: "user or pass cannot be empty",
+			// 	Data:    "",
+			// }
+			// c.JSON(http.StatusOK, rsp)
+			c.HTML(http.StatusOK, "strawberry_login", gin.H{
+				"strawberry_title":  "登录",
+				"strawberry_status": "user or pass cannot be empty",
+			})
 		} else {
 			var user User
 			DataBase.GetDB().Where("user_name=?", username).First(&user)
