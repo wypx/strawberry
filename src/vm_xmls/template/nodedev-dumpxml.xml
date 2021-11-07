@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>nodedev-dumpxml</name>
+
+  <description>
+    <text>
+      Output the details for a node device as an XML dump to stdout
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.5.0" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

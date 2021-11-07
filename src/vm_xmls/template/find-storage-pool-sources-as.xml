@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>find-storage-pool-sources-as</name>
+
+  <description>
+    <text>
+      Discover potential storage pool sources
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.4.6" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

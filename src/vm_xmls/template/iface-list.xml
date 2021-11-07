@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>iface-list</name>
+
+  <description>
+    <text>
+      Returns a list of physical host network interfaces
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.7.0" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>snapshot-delete</name>
+
+  <description>
+    <text>
+      Removes a snapshot, and all of it's children, from a domain
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.8.0" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

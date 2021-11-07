@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>snapshot-revert</name>
+
+  <description>
+    <text>
+      Reverts a domain to a given snapshot
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.8.0" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

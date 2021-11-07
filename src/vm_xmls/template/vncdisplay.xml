@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>vncdisplay</name>
+
+  <description>
+    <text>
+      Output the IP address and port number for the VNC display
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.2.0" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

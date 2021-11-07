@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>nodedev-reset</name>
+
+  <description>
+    <text>
+      Reset a node device before or after assigning to a domain
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.6.1" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

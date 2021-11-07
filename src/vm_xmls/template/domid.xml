@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>domid</name>
+
+  <description>
+    <text>
+      Convert a domain name or UUID to domain id
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.1.0" previous-name="idof" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

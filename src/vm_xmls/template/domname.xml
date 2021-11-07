@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>domname</name>
+
+  <description>
+    <text>
+      Convert a guest domain id or UUID to guest domain name
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.1.0" previous-name="nameof" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

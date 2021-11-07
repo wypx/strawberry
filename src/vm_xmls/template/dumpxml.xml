@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>dumpxml</name>
+
+  <description>
+    <text>
+      Output the guest domain information as an XML dump to stdout
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.0.1" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

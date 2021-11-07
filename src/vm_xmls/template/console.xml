@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>console</name>
+
+  <description>
+    <text>
+      Connect the virtual serial console for the guest
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.2.0" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

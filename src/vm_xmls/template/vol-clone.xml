@@ -1,0 +1,25 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>vol-clone</name>
+
+  <description>
+    <text>
+      Copies an existing storage volume, including data, to a new storage
+      volume
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.6.4" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

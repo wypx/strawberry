@@ -1,0 +1,25 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>start</name>
+
+  <description>
+    <text>
+      Start a guest domain, either from the last managedsave state, or via
+      a fresh boot if no managedsave state is present
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.1.6" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

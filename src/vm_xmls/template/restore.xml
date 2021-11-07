@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>restore</name>
+
+  <description>
+    <text>
+      Restore a guest domain
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.0.2" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

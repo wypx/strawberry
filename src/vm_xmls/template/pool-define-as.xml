@@ -1,0 +1,25 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>pool-define-as</name>
+
+  <description>
+    <text>
+      Add a new <bold>persistent</bold> storage pool to the configuration,
+      without starting it, using settings passed as options
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.4.1" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

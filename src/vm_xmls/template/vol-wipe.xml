@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>vol-wipe</name>
+
+  <description>
+    <text>
+      Ensure data previously on a volume is not accessible to future reads
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.8.0" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

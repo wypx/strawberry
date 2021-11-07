@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>managedsave</name>
+
+  <description>
+    <text>
+      Save and destroy a running guest domain, so it can be restarted from
+      the same state at a later time.  When the virsh
+      <link type="internal" href="start" /> command is next run for the
+      guest domain, it will automatically be started from this saved state
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.8.0" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

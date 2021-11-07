@@ -1,0 +1,90 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>setvcpus</name>
+
+  <description>
+    <text>
+      Change the number of virtual CPUs in the guest domain
+    </text>
+  </description>
+
+  <options>
+    <parameter requirement="required">
+      <keyword requirement="optional">--domain</keyword>
+      <value type="string" requirement="required">domain</value>
+      <description>
+        <text>
+          domain name, id or uuid
+        </text>
+        <text>
+          "--domain" itself is optional
+        </text>
+      </description>
+    </parameter>
+    <parameter requirement="required">
+      <keyword requirement="optional">--count</keyword>
+      <value type="number" requirement="required">count</value>
+      <description>
+        <text>
+          number of virtual CPUs
+        </text>
+        <text>
+          "--count" itself is optional
+        </text>
+      </description>
+    </parameter>
+    <parameter requirement="optional">
+      <keyword requirement="optional">--maximum</keyword>
+      <description>
+        <text>
+          set maximum limit on next boot
+        </text>
+      </description>
+    </parameter>
+    <parameter requirement="optional">
+      <keyword requirement="optional">--config</keyword>
+      <description>
+        <text>
+          affect next boot
+        </text>
+      </description>
+    </parameter>
+    <parameter requirement="optional">
+      <keyword requirement="optional">--live</keyword>
+      <description>
+        <text>
+          affect running domain
+        </text>
+      </description>
+    </parameter>
+    <parameter requirement="optional">
+      <keyword requirement="optional">--current</keyword>
+      <description>
+        <text>
+          affect curent domain
+        </text>
+      </description>
+    </parameter>
+  </options>
+
+  <availability from="0.0.1" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso">
+    <item>
+      <link type="internal" href="vcpucount" />
+      <name>
+        vcpucount
+      </name>
+      <description>
+        show domain vcpu counts
+      </description>
+    </item>
+  </reference>
+</command>

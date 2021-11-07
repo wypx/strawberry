@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>nwfilter-dumpxml</name>
+
+  <description>
+    <text>
+      Output the network filter information as an XML dump to stdout
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.8.0" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>iface-mac</name>
+
+  <description>
+    <text>
+      Returns the MAC address for a physical host network interface
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.7.0" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

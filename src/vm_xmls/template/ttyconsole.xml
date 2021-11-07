@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>ttyconsole</name>
+
+  <description>
+    <text>
+      Output the device for the TTY console
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.3.2" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

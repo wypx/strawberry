@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>domjobabort</name>
+
+  <description>
+    <text>
+      Aborts the currently running guest domain job
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.7.7" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

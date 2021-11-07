@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>cpu-compare</name>
+
+  <description>
+    <text>
+      Compare host CPU with a CPU described by an XML file
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.7.5" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

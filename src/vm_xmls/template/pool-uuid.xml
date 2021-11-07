@@ -1,0 +1,25 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>pool-uuid</name>
+
+  <description>
+    <text>
+      When given a storage pool name, returns the corresponding storage
+      pool UUID
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.4.1" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

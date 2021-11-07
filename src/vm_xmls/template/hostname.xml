@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>hostname</name>
+
+  <description>
+    <text>
+      Display the name of the hypervisor host
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.3.0" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

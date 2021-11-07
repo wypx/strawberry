@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>vol-create-from</name>
+
+  <description>
+    <text>
+      Create a new storage volume from an existing storage volume
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.6.4" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

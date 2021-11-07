@@ -1,0 +1,59 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>migrate-setmaxdowntime</name>
+
+  <description>
+    <text>
+      Set maximum tolerable downtime of a guest domain which is being live
+      migrated to another host
+    </text>
+  </description>
+
+  <options>
+    <parameter requirement="required">
+      <keyword requirement="optional">--domain</keyword>
+      <value type="string" requirement="required">domain</value>
+      <description>
+        <text>
+          domain name, id or uuid
+        </text>
+        <text>
+          "--domain" itself is optional
+        </text>
+      </description>
+    </parameter>
+    <parameter requirement="required">
+      <keyword requirement="optional">--downtime</keyword>
+      <value type="number" requirement="required">downtime</value>
+      <description>
+        <text>
+          maximum tolerable downtime (in milliseconds) for migration
+        </text>
+        <text>
+          "--downtime" itself is optional
+        </text>
+      </description>
+    </parameter>
+  </options>
+
+  <availability from="0.8.0" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso">
+    <item>
+      <link type="internal" href="migrate" />
+      <name>
+        migrate>
+      </name>
+      <description>
+        migrate a domain to another host.
+      </description>
+    </item>
+  </reference>
+</command>

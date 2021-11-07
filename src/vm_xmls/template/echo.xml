@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>echo</name>
+
+  <description>
+    <text>
+      Echo back arguments, possibly with quoting
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.8.5" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

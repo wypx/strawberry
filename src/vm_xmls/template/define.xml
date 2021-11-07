@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>define</name>
+
+  <description>
+    <text>
+      Define, but don't start, a guest domain from an XML file
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.1.6" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

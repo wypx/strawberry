@@ -1,0 +1,25 @@
+<?xml version='1.0' encoding='utf-8' ?>
+
+<command>
+  <name>pool-refresh</name>
+
+  <description>
+    <text>
+      Re-examines the storage in a storage pool, updating the internal list
+      of volumes present and their details
+    </text>
+  </description>
+
+  <options />
+
+  <availability from="0.4.1" />
+ 
+  <notes />
+ 
+  <examples type="usage" />
+
+  <examples type="fullcontext" />
+
+  <reference type="seealso" />
+
+</command>

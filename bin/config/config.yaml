@@ -1,0 +1,35 @@
+# Stawberry Global Configuration
+# Change to "public/develop" to skip authentication for development mode
+web-server-env: 'develop'  
+web-server-addr: ':8080'
+database-type: 'mongo'
+database-addr: '127.0.0.1'
+database-port: 8888
+
+web-relative-path: '/web'
+web-absolute-path: '/root/work/strawberry/web'
+web-upload-path: 'uploads'
+web-download-path: 'downloads'
+logger-path: '/root/work/strawberry/web/private'
+logger-level: 'DEBUG'
+
+jwt-signing-key: 'qmPlus'
+jwt-expires-time: 604800
+jwt-buffer-time: 86400
+
+# autocode configuration
+autocode:
+  transfer-restart: true
+  root: ""
+  server: /server
+  server-api: /api/v1/autocode
+  server-initialize: /initialize
+  server-model: /model/autocode
+  server-request: /model/autocode/request/
+  server-router: /router/autocode
+  server-service: /service/autocode
+  web: /web/src
+  web-api: /api
+  web-flow: /view
+  web-form: /view
+  web-table: /view
