@@ -9,8 +9,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/julienschmidt/httprouter"
-	"github.com/project-nano/framework"
+
 	"io"
 	"io/ioutil"
 	"log"
@@ -24,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"vm_manager/vm_utils"
 )
 
 type APIModule struct {
@@ -48,7 +50,7 @@ type APIConfig struct {
 }
 
 const (
-	HeaderNameHost          = "Host"
+	HeaderNameHost = "Host"
 	//HeaderNameContentType   = "Content-Type"
 	//HeaderNameSession       = "Nano-Session"
 	HeaderNameDate          = "Nano-Date"
@@ -58,7 +60,7 @@ const (
 	APIVersion              = 1
 )
 
-func CreateAPIModule(configPath string, sender framework.MessageSender, resourceModule ResourceModule) (module *APIModule, err error) {
+func CreateAPIModule(configPath string, sender vm_utils.MessageSender, resourceModule ResourceModule) (module *APIModule, err error) {
 	//load config
 	const (
 		configFilename = "api.cfg"
@@ -72,23 +74,23 @@ func CreateAPIModule(configPath string, sender framework.MessageSender, resource
 	if err = json.Unmarshal(data, &config); err != nil {
 		return
 	}
-	if 0 == len(config.Credentials){
+	if 0 == len(config.Credentials) {
 		const (
 			dummyID  = "dummyID"
 			dummyKey = "ThisIsAKeyPlaceHolder_ChangeToYourContent"
 		)
 		config.Credentials = []ApiCredential{{ID: dummyID, Key: dummyKey}}
-		if data, err = json.MarshalIndent(config, "", " "); err != nil{
+		if data, err = json.MarshalIndent(config, "", " "); err != nil {
 			err = fmt.Errorf("marshal new config fail: %s", err.Error())
 			return
 		}
 		var file *os.File
-		if file, err = os.Create(configFile); err != nil{
+		if file, err = os.Create(configFile); err != nil {
 			err = fmt.Errorf("create new config fail: %s", err.Error())
 			return
 		}
 		defer file.Close()
-		if _, err = file.Write(data); err != nil{
+		if _, err = file.Write(data); err != nil {
 			err = fmt.Errorf("write new config fail: %s", err.Error())
 			return
 		}
@@ -103,12 +105,12 @@ func CreateAPIModule(configPath string, sender framework.MessageSender, resource
 	module = &APIModule{}
 	module.apiCredentials = map[string]string{}
 
-	for _, credential := range config.Credentials{
-		if 0 == len(credential.ID){
+	for _, credential := range config.Credentials {
+		if 0 == len(credential.ID) {
 			err = errors.New("empty API ID")
 			return
 		}
-		if 0 == len(credential.Key){
+		if 0 == len(credential.Key) {
 			err = fmt.Errorf("empty API key for '%s'", credential.ID)
 			return
 		}
@@ -127,14 +129,14 @@ func CreateAPIModule(configPath string, sender framework.MessageSender, resource
 	return
 }
 
-func (module *APIModule) GetServiceAddress() string{
+func (module *APIModule) GetServiceAddress() string {
 	return module.server.Addr
 }
 
 func (module *APIModule) GetModuleName() string {
 	return module.proxy.Module
 }
-func (module *APIModule) GetResponseChannel() chan framework.Message {
+func (module *APIModule) GetResponseChannel() chan vm_utils.Message {
 	return module.proxy.ResponseChan
 }
 
@@ -160,19 +162,19 @@ func (module *APIModule) routine() {
 	module.exitChan <- true
 }
 
-func apiPath(path string) string{
+func apiPath(path string) string {
 	return fmt.Sprintf("%s/v%d%s", APIRoot, APIVersion, path)
 }
 
-func (module *APIModule) verifyRequestSignature(r *http.Request) error{
+func (module *APIModule) verifyRequestSignature(r *http.Request) error {
 	return module.verifySignature(r, true)
 }
 
-func (module *APIModule) verifyStreamSignature(r *http.Request) error{
+func (module *APIModule) verifyStreamSignature(r *http.Request) error {
 	return module.verifySignature(r, false)
 }
 
-func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (err error){
+func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (err error) {
 	const (
 		SignatureMethodHMAC256 = "Nano-HMAC-SHA256"
 		ShortDateFormat        = "20060102"
@@ -184,11 +186,11 @@ func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (
 		//check authorization
 		var authorization = r.Header.Get(HeaderNameAuthorization)
 		var length = len(authorization)
-		if 0 == length{
+		if 0 == length {
 			err = errors.New("authorization required")
 			return
 		}
-		if length <= len(SignatureMethodHMAC256){
+		if length <= len(SignatureMethodHMAC256) {
 			err = fmt.Errorf("insufficent authorization: %s", authorization)
 			return
 		}
@@ -198,9 +200,9 @@ func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (
 			return
 		}
 		var names, values []string
-		for _, token := range strings.Split(authorization[len(SignatureMethodHMAC256) + 1:], ","){
+		for _, token := range strings.Split(authorization[len(SignatureMethodHMAC256)+1:], ",") {
 			var split = strings.SplitN(token, "=", 2)
-			if 2 != len(split){
+			if 2 != len(split) {
 				err = fmt.Errorf("invalid authorization token: %s", token)
 				return
 			}
@@ -213,34 +215,34 @@ func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (
 			TokenSignedHeaders = "SignedHeaders"
 			TokenSignature     = "Signature"
 		)
-		if TokenCount != len(names) || TokenCount != len(values){
+		if TokenCount != len(names) || TokenCount != len(values) {
 			err = fmt.Errorf("unexpected token count %d/%d", len(names), len(values))
 			return
 		}
-		if TokenCredential != names[0]{
+		if TokenCredential != names[0] {
 			err = fmt.Errorf("invalid first token %s", names[0])
 			return
 		}
-		if TokenSignedHeaders != names[1]{
+		if TokenSignedHeaders != names[1] {
 			err = fmt.Errorf("invalid second token %s", names[1])
 			return
 		}
-		if TokenSignature != names[2]{
+		if TokenSignature != names[2] {
 			err = fmt.Errorf("invalid third token %s", names[2])
 			return
 		}
 		var idTail = strings.IndexByte(values[0], '/')
-		if -1 == idTail{
+		if -1 == idTail {
 			err = fmt.Errorf("no API ID in credential: %s", values[0])
 			return
 		}
 		apiID = values[0][:idTail]
 		var exists bool
-		if apiKey, exists = module.apiCredentials[apiID]; !exists{
+		if apiKey, exists = module.apiCredentials[apiID]; !exists {
 			err = fmt.Errorf("invalid API ID: %s", apiID)
 			return
 		}
-		requestScope = values[0][idTail + 1:]
+		requestScope = values[0][idTail+1:]
 		signedHeaders = values[1]
 		signature = values[2]
 	}
@@ -249,51 +251,51 @@ func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (
 		//canonicalRequest
 		var canonicalURI = url.QueryEscape(url.QueryEscape(r.URL.Path))
 		var canonicalQueryString string
-		if 0 != len(r.URL.Query()){
+		if 0 != len(r.URL.Query()) {
 			var paramNames []string
-			for key := range r.URL.Query(){
+			for key := range r.URL.Query() {
 				paramNames = append(paramNames, key)
 			}
 			sort.Sort(sort.StringSlice(paramNames))
 			var queryParams []string
-			for _, name := range paramNames{
+			for _, name := range paramNames {
 				queryParams = append(queryParams,
 					fmt.Sprintf("%s=%s", url.QueryEscape(name), url.QueryEscape(r.URL.Query().Get(name))))
 			}
 			canonicalQueryString = strings.Join(queryParams, "&")
-		}else{
+		} else {
 			canonicalQueryString = ""
 		}
 		var headerIndexes = map[string]int{}
 		var targetHeaders = strings.Split(signedHeaders, ";")
-		for index, name := range targetHeaders{
+		for index, name := range targetHeaders {
 			headerIndexes[name] = index
 		}
 		var signedHeaderToken = make([]string, len(signedHeaders))
 
 		//extract signed headers
-		for name, _ := range r.Header{
+		for name, _ := range r.Header {
 			var lowerName = strings.ToLower(name)
-			if index, exists := headerIndexes[lowerName]; exists{
+			if index, exists := headerIndexes[lowerName]; exists {
 				//signed header
 				signedHeaderToken[index] = fmt.Sprintf("%s:%s\n",
 					lowerName, strings.Trim(r.Header.Get(name), " "))
 			}
-			if HeaderNameDate == name{
+			if HeaderNameDate == name {
 				requestDate = r.Header.Get(name)
 				var requestTime time.Time
-				if requestTime, err = time.Parse(time.RFC3339, requestDate); err != nil{
+				if requestTime, err = time.Parse(time.RFC3339, requestDate); err != nil {
 					err = fmt.Errorf("invalid request date: %s", requestDate)
 				}
 				//must on same day
-				if time.Now().Format(ShortDateFormat) != requestTime.Format(ShortDateFormat){
+				if time.Now().Format(ShortDateFormat) != requestTime.Format(ShortDateFormat) {
 					err = fmt.Errorf("expired request with date %s", requestDate)
 					return
 				}
 			}
-			if HeaderNameScope == name{
+			if HeaderNameScope == name {
 				var scope = r.Header.Get(name)
-				if scope != requestScope{
+				if scope != requestScope {
 					err = fmt.Errorf("request scope mismatch: %s => %s", scope, requestScope)
 					return
 				}
@@ -301,7 +303,7 @@ func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (
 		}
 		var canonicalHeaders string
 		var headersBuilder strings.Builder
-		for _, token := range signedHeaderToken{
+		for _, token := range signedHeaderToken {
 			headersBuilder.WriteString(token)
 		}
 		canonicalHeaders = headersBuilder.String()
@@ -314,12 +316,12 @@ func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (
 			signedHeaders,
 		}
 		if processPayload {
-			if http.MethodGet == r.Method || http.MethodHead == r.Method || http.MethodOptions == r.Method{
+			if http.MethodGet == r.Method || http.MethodHead == r.Method || http.MethodOptions == r.Method {
 				hash.Write([]byte(""))
-			}else {
+			} else {
 				//clone request payload
 				var payload []byte
-				if payload, err = ioutil.ReadAll(r.Body); err != nil{
+				if payload, err = ioutil.ReadAll(r.Body); err != nil {
 					return
 				}
 				hash.Write(payload)
@@ -349,17 +351,17 @@ func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (
 
 		var key = []byte(builder.String())
 		var data = []byte(requestScope)
-		if signKey, err = computeHMACSha256(key, data); err != nil{
+		if signKey, err = computeHMACSha256(key, data); err != nil {
 			err = fmt.Errorf("compute signature key fail: %s", err.Error())
 			return
 		}
 		var hmacSignature []byte
-		if hmacSignature, err = computeHMACSha256(signKey, []byte(stringToSign)); err != nil{
+		if hmacSignature, err = computeHMACSha256(signKey, []byte(stringToSign)); err != nil {
 			err = fmt.Errorf("compute signature fail: %s", err.Error())
 			return
 		}
 		var expectedSignature = hex.EncodeToString(hmacSignature)
-		if signature != expectedSignature{
+		if signature != expectedSignature {
 			err = errors.New("signature corrupted")
 			return
 		}
@@ -367,9 +369,9 @@ func (module *APIModule) verifySignature(r *http.Request, processPayload bool) (
 	return nil
 }
 
-func computeHMACSha256(key, data []byte) (hash []byte, err error){
+func computeHMACSha256(key, data []byte) (hash []byte, err error) {
 	var h = hmac.New(sha256.New, key)
-	if _, err = h.Write(data); err != nil{
+	if _, err = h.Write(data); err != nil {
 		return
 	}
 	hash = h.Sum(nil)
@@ -452,7 +454,7 @@ func (module *APIModule) RegisterAPIHandler(router *httprouter.Router) {
 	router.PATCH(apiPath("/disk_images/"), module.syncDiskImages)
 
 	router.GET(apiPath("/disk_images/:id/file/"), module.redirectToImageServer)
-	router.POST(apiPath("/disk_images/:id/file/"), module.redirectToImageServer)//upload from web
+	router.POST(apiPath("/disk_images/:id/file/"), module.redirectToImageServer) //upload from web
 
 	router.POST(apiPath("/instances/:id/media"), module.handleInsertMedia)
 	router.DELETE(apiPath("/instances/:id/media"), module.handleEjectMedia)
@@ -522,11 +524,11 @@ func (module *APIModule) RegisterAPIHandler(router *httprouter.Router) {
 }
 
 func (module *APIModule) queryZoneStatistic(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg, _ := framework.CreateJsonMessage(framework.QueryZoneStatusRequest)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QueryZoneStatusRequest)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> query zone status fail: %s", err.Error())
@@ -557,26 +559,26 @@ func (module *APIModule) queryZoneStatistic(w http.ResponseWriter, r *http.Reque
 		StartTime       string   `json:"start_time"`
 	}
 
-	parser := func(msg framework.Message) (data respData, err error) {
-		if data.Name, err = msg.GetString(framework.ParamKeyName); err != nil {
+	parser := func(msg vm_utils.Message) (data respData, err error) {
+		if data.Name, err = msg.GetString(vm_utils.ParamKeyName); err != nil {
 			return data, err
 		}
-		if data.StartTime, err = msg.GetString(framework.ParamKeyStart); err != nil {
+		if data.StartTime, err = msg.GetString(vm_utils.ParamKeyStart); err != nil {
 			return data, err
 		}
-		if data.Pools, err = msg.GetUIntArray(framework.ParamKeyPool); err != nil {
+		if data.Pools, err = msg.GetUIntArray(vm_utils.ParamKeyPool); err != nil {
 			return data, err
 		}
-		if data.Cells, err = msg.GetUIntArray(framework.ParamKeyCell); err != nil {
+		if data.Cells, err = msg.GetUIntArray(vm_utils.ParamKeyCell); err != nil {
 			return data, err
 		}
-		if data.Instances, err = msg.GetUIntArray(framework.ParamKeyInstance); err != nil {
+		if data.Instances, err = msg.GetUIntArray(vm_utils.ParamKeyInstance); err != nil {
 			return data, err
 		}
-		if data.CpuUsage, err = msg.GetFloat(framework.ParamKeyUsage); err != nil {
+		if data.CpuUsage, err = msg.GetFloat(vm_utils.ParamKeyUsage); err != nil {
 			return data, err
 		}
-		if data.MaxCpu, err = msg.GetUInt(framework.ParamKeyCore); err != nil {
+		if data.MaxCpu, err = msg.GetUInt(vm_utils.ParamKeyCore); err != nil {
 			return data, err
 		}
 		const (
@@ -584,21 +586,21 @@ func (module *APIModule) queryZoneStatistic(w http.ResponseWriter, r *http.Reque
 			diskParamCount   = 2
 			speedParamCount  = 4
 		)
-		memory, err := msg.GetUIntArray(framework.ParamKeyMemory)
+		memory, err := msg.GetUIntArray(vm_utils.ParamKeyMemory)
 		if err != nil {
 			return data, err
 		}
 		if memoryParamCount != len(memory) {
 			return data, fmt.Errorf("invalid memory param count %d", len(memory))
 		}
-		disk, err := msg.GetUIntArray(framework.ParamKeyDisk)
+		disk, err := msg.GetUIntArray(vm_utils.ParamKeyDisk)
 		if err != nil {
 			return data, err
 		}
 		if diskParamCount != len(disk) {
 			return data, fmt.Errorf("invalid disk param count %d", len(disk))
 		}
-		speed, err := msg.GetUIntArray(framework.ParamKeySpeed)
+		speed, err := msg.GetUIntArray(vm_utils.ParamKeySpeed)
 		if err != nil {
 			return data, err
 		}
@@ -623,17 +625,17 @@ func (module *APIModule) queryZoneStatistic(w http.ResponseWriter, r *http.Reque
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if err = ResponseOK(data, w); err != nil{
+	if err = ResponseOK(data, w); err != nil {
 		log.Printf("<api> marshal zone status fail: %s", err.Error())
 	}
 }
 
 func (module *APIModule) queryComputePoolsStatus(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg, _ := framework.CreateJsonMessage(framework.QueryComputePoolStatusRequest)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QueryComputePoolStatusRequest)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> query compute pool status fail: %s", err.Error())
@@ -663,34 +665,34 @@ func (module *APIModule) queryComputePoolsStatus(w http.ResponseWriter, r *http.
 		SendSpeed       uint64   `json:"send_speed"`
 	}
 
-	parser := func(msg framework.Message) (status []poolStatus, err error) {
+	parser := func(msg vm_utils.Message) (status []poolStatus, err error) {
 		var name []string
 		var enabled, cells, instances, usage, cores, memory, disk, speed []uint64
-		if name, err = msg.GetStringArray(framework.ParamKeyName); err != nil {
+		if name, err = msg.GetStringArray(vm_utils.ParamKeyName); err != nil {
 			return
 		}
-		if enabled, err = msg.GetUIntArray(framework.ParamKeyEnable); err != nil {
+		if enabled, err = msg.GetUIntArray(vm_utils.ParamKeyEnable); err != nil {
 			return
 		}
-		if cells, err = msg.GetUIntArray(framework.ParamKeyCell); err != nil {
+		if cells, err = msg.GetUIntArray(vm_utils.ParamKeyCell); err != nil {
 			return
 		}
-		if instances, err = msg.GetUIntArray(framework.ParamKeyInstance); err != nil {
+		if instances, err = msg.GetUIntArray(vm_utils.ParamKeyInstance); err != nil {
 			return
 		}
-		if usage, err = msg.GetUIntArray(framework.ParamKeyUsage); err != nil {
+		if usage, err = msg.GetUIntArray(vm_utils.ParamKeyUsage); err != nil {
 			return
 		}
-		if cores, err = msg.GetUIntArray(framework.ParamKeyCore); err != nil {
+		if cores, err = msg.GetUIntArray(vm_utils.ParamKeyCore); err != nil {
 			return
 		}
-		if memory, err = msg.GetUIntArray(framework.ParamKeyMemory); err != nil {
+		if memory, err = msg.GetUIntArray(vm_utils.ParamKeyMemory); err != nil {
 			return
 		}
-		if disk, err = msg.GetUIntArray(framework.ParamKeyDisk); err != nil {
+		if disk, err = msg.GetUIntArray(vm_utils.ParamKeyDisk); err != nil {
 			return
 		}
-		if speed, err = msg.GetUIntArray(framework.ParamKeySpeed); err != nil {
+		if speed, err = msg.GetUIntArray(vm_utils.ParamKeySpeed); err != nil {
 			return
 		}
 		const (
@@ -706,45 +708,45 @@ func (module *APIModule) queryComputePoolsStatus(w http.ResponseWriter, r *http.
 		var memoryCount = len(memory)
 		var diskCount = len(disk)
 		var speedCount = len(speed)
-		if cellCount != count * cellParamCount{
-			err = fmt.Errorf("unexpected cell params %d / %d", cellCount, count * cellParamCount)
+		if cellCount != count*cellParamCount {
+			err = fmt.Errorf("unexpected cell params %d / %d", cellCount, count*cellParamCount)
 			return
 		}
-		if instanceCount != count * instanceParamCount{
-			err = fmt.Errorf("unexpected instance params %d / %d", instanceCount, count * instanceParamCount)
+		if instanceCount != count*instanceParamCount {
+			err = fmt.Errorf("unexpected instance params %d / %d", instanceCount, count*instanceParamCount)
 			return
 		}
-		if memoryCount != count * memoryParamCount{
-			err = fmt.Errorf("unexpected memory params %d / %d", memoryCount, count * memoryParamCount)
+		if memoryCount != count*memoryParamCount {
+			err = fmt.Errorf("unexpected memory params %d / %d", memoryCount, count*memoryParamCount)
 			return
 		}
-		if diskCount != count * diskParamCount{
-			err = fmt.Errorf("unexpected disk params %d / %d", diskCount, count * diskParamCount)
+		if diskCount != count*diskParamCount {
+			err = fmt.Errorf("unexpected disk params %d / %d", diskCount, count*diskParamCount)
 			return
 		}
-		if speedCount != count * speedParamCount{
-			err = fmt.Errorf("unexpected speed params %d / %d", memoryCount, count * speedParamCount)
+		if speedCount != count*speedParamCount {
+			err = fmt.Errorf("unexpected speed params %d / %d", memoryCount, count*speedParamCount)
 			return
 		}
-		for i := 0; i < count; i++{
-			var p = poolStatus{Name:name[i]}
-			if 1 == enabled[i]{
+		for i := 0; i < count; i++ {
+			var p = poolStatus{Name: name[i]}
+			if 1 == enabled[i] {
 				p.Enabled = true
-			}else{
+			} else {
 				p.Enabled = false
 			}
-			p.Cells = []uint64{cells[i*cellParamCount], cells[i*cellParamCount + 1]}
-			p.Instances = []uint64{instances[i*instanceParamCount], instances[i*instanceParamCount + 1], instances[i*instanceParamCount+ 2], instances[i*instanceParamCount + 3]}
+			p.Cells = []uint64{cells[i*cellParamCount], cells[i*cellParamCount+1]}
+			p.Instances = []uint64{instances[i*instanceParamCount], instances[i*instanceParamCount+1], instances[i*instanceParamCount+2], instances[i*instanceParamCount+3]}
 			p.CpuUsage = float64(usage[i])
 			p.MaxCpu = uint(cores[i])
 			p.AvailableMemory = memory[i*memoryParamCount]
-			p.MaxMemory = memory[i*memoryParamCount + 1]
+			p.MaxMemory = memory[i*memoryParamCount+1]
 			p.AvailableDisk = disk[i*diskParamCount]
-			p.MaxDisk = disk[i*diskParamCount + 1]
+			p.MaxDisk = disk[i*diskParamCount+1]
 			p.ReadSpeed = speed[i*speedParamCount]
-			p.WriteSpeed = speed[i*speedParamCount + 1]
-			p.ReceiveSpeed = speed[i*speedParamCount + 2]
-			p.SendSpeed = speed[i*speedParamCount + 3]
+			p.WriteSpeed = speed[i*speedParamCount+1]
+			p.ReceiveSpeed = speed[i*speedParamCount+2]
+			p.SendSpeed = speed[i*speedParamCount+3]
 			status = append(status, p)
 		}
 		return
@@ -760,14 +762,14 @@ func (module *APIModule) queryComputePoolsStatus(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) getComputePoolStatus(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	pool := params.ByName("pool")
 
-	msg, _ := framework.CreateJsonMessage(framework.GetComputePoolStatusRequest)
-	msg.SetString(framework.ParamKeyPool, pool)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.GetComputePoolStatusRequest)
+	msg.SetString(vm_utils.ParamKeyPool, pool)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> query compute pool status fail: %s", err.Error())
@@ -797,23 +799,23 @@ func (module *APIModule) getComputePoolStatus(w http.ResponseWriter, r *http.Req
 		SendSpeed       uint64   `json:"send_speed"`
 	}
 
-	parser := func(msg framework.Message) (data respData, err error) {
-		if data.Name, err = msg.GetString(framework.ParamKeyName); err != nil {
+	parser := func(msg vm_utils.Message) (data respData, err error) {
+		if data.Name, err = msg.GetString(vm_utils.ParamKeyName); err != nil {
 			return data, err
 		}
-		if data.Enabled, err = msg.GetBoolean(framework.ParamKeyEnable); err != nil {
+		if data.Enabled, err = msg.GetBoolean(vm_utils.ParamKeyEnable); err != nil {
 			return data, err
 		}
-		if data.Cells, err = msg.GetUIntArray(framework.ParamKeyCell); err != nil {
+		if data.Cells, err = msg.GetUIntArray(vm_utils.ParamKeyCell); err != nil {
 			return data, err
 		}
-		if data.Instances, err = msg.GetUIntArray(framework.ParamKeyInstance); err != nil {
+		if data.Instances, err = msg.GetUIntArray(vm_utils.ParamKeyInstance); err != nil {
 			return data, err
 		}
-		if data.CpuUsage, err = msg.GetFloat(framework.ParamKeyUsage); err != nil {
+		if data.CpuUsage, err = msg.GetFloat(vm_utils.ParamKeyUsage); err != nil {
 			return data, err
 		}
-		if data.MaxCpu, err = msg.GetUInt(framework.ParamKeyCore); err != nil {
+		if data.MaxCpu, err = msg.GetUInt(vm_utils.ParamKeyCore); err != nil {
 			return data, err
 		}
 		const (
@@ -821,21 +823,21 @@ func (module *APIModule) getComputePoolStatus(w http.ResponseWriter, r *http.Req
 			diskParamCount   = 2
 			speedParamCount  = 4
 		)
-		memory, err := msg.GetUIntArray(framework.ParamKeyMemory)
+		memory, err := msg.GetUIntArray(vm_utils.ParamKeyMemory)
 		if err != nil {
 			return data, err
 		}
 		if memoryParamCount != len(memory) {
 			return data, fmt.Errorf("invalid memory param count %d", len(memory))
 		}
-		disk, err := msg.GetUIntArray(framework.ParamKeyDisk)
+		disk, err := msg.GetUIntArray(vm_utils.ParamKeyDisk)
 		if err != nil {
 			return data, err
 		}
 		if diskParamCount != len(disk) {
 			return data, fmt.Errorf("invalid disk param count %d", len(disk))
 		}
-		speed, err := msg.GetUIntArray(framework.ParamKeySpeed)
+		speed, err := msg.GetUIntArray(vm_utils.ParamKeySpeed)
 		if err != nil {
 			return data, err
 		}
@@ -864,13 +866,13 @@ func (module *APIModule) getComputePoolStatus(w http.ResponseWriter, r *http.Req
 }
 
 func (module *APIModule) queryComputeCellStatus(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	pool := params.ByName("pool")
-	msg, _ := framework.CreateJsonMessage(framework.QueryComputePoolCellStatusRequest)
-	msg.SetString(framework.ParamKeyPool, pool)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QueryComputePoolCellStatusRequest)
+	msg.SetString(vm_utils.ParamKeyPool, pool)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> query compute cell status fail: %s", err.Error())
@@ -901,37 +903,37 @@ func (module *APIModule) queryComputeCellStatus(w http.ResponseWriter, r *http.R
 		SendSpeed       uint64   `json:"send_speed"`
 	}
 
-	parser := func(msg framework.Message) (status []cellStatus, err error) {
+	parser := func(msg vm_utils.Message) (status []cellStatus, err error) {
 		var name, address []string
 		var enabled, alive, instances, usage, cores, memory, disk, speed []uint64
-		if name, err = msg.GetStringArray(framework.ParamKeyName); err != nil {
+		if name, err = msg.GetStringArray(vm_utils.ParamKeyName); err != nil {
 			return
 		}
-		if address, err = msg.GetStringArray(framework.ParamKeyAddress); err != nil {
+		if address, err = msg.GetStringArray(vm_utils.ParamKeyAddress); err != nil {
 			return
 		}
-		if enabled, err = msg.GetUIntArray(framework.ParamKeyEnable); err != nil {
+		if enabled, err = msg.GetUIntArray(vm_utils.ParamKeyEnable); err != nil {
 			return
 		}
-		if alive, err = msg.GetUIntArray(framework.ParamKeyStatus); err != nil {
+		if alive, err = msg.GetUIntArray(vm_utils.ParamKeyStatus); err != nil {
 			return
 		}
-		if instances, err = msg.GetUIntArray(framework.ParamKeyInstance); err != nil {
+		if instances, err = msg.GetUIntArray(vm_utils.ParamKeyInstance); err != nil {
 			return
 		}
-		if usage, err = msg.GetUIntArray(framework.ParamKeyUsage); err != nil {
+		if usage, err = msg.GetUIntArray(vm_utils.ParamKeyUsage); err != nil {
 			return
 		}
-		if cores, err = msg.GetUIntArray(framework.ParamKeyCore); err != nil {
+		if cores, err = msg.GetUIntArray(vm_utils.ParamKeyCore); err != nil {
 			return
 		}
-		if memory, err = msg.GetUIntArray(framework.ParamKeyMemory); err != nil {
+		if memory, err = msg.GetUIntArray(vm_utils.ParamKeyMemory); err != nil {
 			return
 		}
-		if disk, err = msg.GetUIntArray(framework.ParamKeyDisk); err != nil {
+		if disk, err = msg.GetUIntArray(vm_utils.ParamKeyDisk); err != nil {
 			return
 		}
-		if speed, err = msg.GetUIntArray(framework.ParamKeySpeed); err != nil {
+		if speed, err = msg.GetUIntArray(vm_utils.ParamKeySpeed); err != nil {
 			return
 		}
 		const (
@@ -945,45 +947,45 @@ func (module *APIModule) queryComputeCellStatus(w http.ResponseWriter, r *http.R
 		var memoryCount = len(memory)
 		var diskCount = len(disk)
 		var speedCount = len(speed)
-		if instanceCount != count * instanceParamCount{
-			err = fmt.Errorf("unexpected instance params %d / %d", instanceCount, count * instanceParamCount)
+		if instanceCount != count*instanceParamCount {
+			err = fmt.Errorf("unexpected instance params %d / %d", instanceCount, count*instanceParamCount)
 			return
 		}
-		if memoryCount != count * memoryParamCount{
-			err = fmt.Errorf("unexpected memory params %d / %d", memoryCount, count * memoryParamCount)
+		if memoryCount != count*memoryParamCount {
+			err = fmt.Errorf("unexpected memory params %d / %d", memoryCount, count*memoryParamCount)
 			return
 		}
-		if diskCount != count * diskParamCount{
-			err = fmt.Errorf("unexpected disk params %d / %d", diskCount, count * diskParamCount)
+		if diskCount != count*diskParamCount {
+			err = fmt.Errorf("unexpected disk params %d / %d", diskCount, count*diskParamCount)
 			return
 		}
-		if speedCount != count * speedParamCount{
-			err = fmt.Errorf("unexpected speed params %d / %d", memoryCount, count * speedParamCount)
+		if speedCount != count*speedParamCount {
+			err = fmt.Errorf("unexpected speed params %d / %d", memoryCount, count*speedParamCount)
 			return
 		}
-		for i := 0; i < count; i++{
-			var p = cellStatus{Name:name[i], Address:address[i]}
-			if 1 == enabled[i]{
+		for i := 0; i < count; i++ {
+			var p = cellStatus{Name: name[i], Address: address[i]}
+			if 1 == enabled[i] {
 				p.Enabled = true
-			}else{
+			} else {
 				p.Enabled = false
 			}
-			if 1 == alive[i]{
+			if 1 == alive[i] {
 				p.Alive = true
-			}else{
+			} else {
 				p.Alive = false
 			}
-			p.Instances = []uint64{instances[i*instanceParamCount], instances[i*instanceParamCount + 1], instances[i*instanceParamCount+ 2], instances[i*instanceParamCount + 3]}
+			p.Instances = []uint64{instances[i*instanceParamCount], instances[i*instanceParamCount+1], instances[i*instanceParamCount+2], instances[i*instanceParamCount+3]}
 			p.CpuUsage = float64(usage[i])
 			p.MaxCpu = uint(cores[i])
 			p.AvailableMemory = memory[i*memoryParamCount]
-			p.MaxMemory = memory[i*memoryParamCount + 1]
+			p.MaxMemory = memory[i*memoryParamCount+1]
 			p.AvailableDisk = disk[i*diskParamCount]
-			p.MaxDisk = disk[i*diskParamCount + 1]
+			p.MaxDisk = disk[i*diskParamCount+1]
 			p.ReadSpeed = speed[i*speedParamCount]
-			p.WriteSpeed = speed[i*speedParamCount + 1]
-			p.ReceiveSpeed = speed[i*speedParamCount + 2]
-			p.SendSpeed = speed[i*speedParamCount + 3]
+			p.WriteSpeed = speed[i*speedParamCount+1]
+			p.ReceiveSpeed = speed[i*speedParamCount+2]
+			p.SendSpeed = speed[i*speedParamCount+3]
 			status = append(status, p)
 		}
 		return
@@ -999,16 +1001,16 @@ func (module *APIModule) queryComputeCellStatus(w http.ResponseWriter, r *http.R
 }
 
 func (module *APIModule) getComputeCellStatus(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	pool := params.ByName("pool")
 	cell := params.ByName("cell")
 
-	msg, _ := framework.CreateJsonMessage(framework.GetComputePoolCellStatusRequest)
-	msg.SetString(framework.ParamKeyPool, pool)
-	msg.SetString(framework.ParamKeyCell, cell)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.GetComputePoolCellStatusRequest)
+	msg.SetString(vm_utils.ParamKeyPool, pool)
+	msg.SetString(vm_utils.ParamKeyCell, cell)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> get compute cell status fail: %s", err.Error())
@@ -1039,26 +1041,26 @@ func (module *APIModule) getComputeCellStatus(w http.ResponseWriter, r *http.Req
 		SendSpeed       uint64   `json:"send_speed"`
 	}
 
-	parser := func(msg framework.Message) (data respData, err error) {
-		if data.Name, err = msg.GetString(framework.ParamKeyName); err != nil {
+	parser := func(msg vm_utils.Message) (data respData, err error) {
+		if data.Name, err = msg.GetString(vm_utils.ParamKeyName); err != nil {
 			return data, err
 		}
-		if data.Address, err = msg.GetString(framework.ParamKeyAddress); err != nil {
+		if data.Address, err = msg.GetString(vm_utils.ParamKeyAddress); err != nil {
 			return data, err
 		}
-		if data.Enabled, err = msg.GetBoolean(framework.ParamKeyEnable); err != nil {
+		if data.Enabled, err = msg.GetBoolean(vm_utils.ParamKeyEnable); err != nil {
 			return data, err
 		}
-		if data.Alive, err = msg.GetBoolean(framework.ParamKeyStatus); err != nil {
+		if data.Alive, err = msg.GetBoolean(vm_utils.ParamKeyStatus); err != nil {
 			return data, err
 		}
-		if data.Instances, err = msg.GetUIntArray(framework.ParamKeyInstance); err != nil {
+		if data.Instances, err = msg.GetUIntArray(vm_utils.ParamKeyInstance); err != nil {
 			return data, err
 		}
-		if data.CpuUsage, err = msg.GetFloat(framework.ParamKeyUsage); err != nil {
+		if data.CpuUsage, err = msg.GetFloat(vm_utils.ParamKeyUsage); err != nil {
 			return data, err
 		}
-		if data.MaxCpu, err = msg.GetUInt(framework.ParamKeyCore); err != nil {
+		if data.MaxCpu, err = msg.GetUInt(vm_utils.ParamKeyCore); err != nil {
 			return data, err
 		}
 		const (
@@ -1066,21 +1068,21 @@ func (module *APIModule) getComputeCellStatus(w http.ResponseWriter, r *http.Req
 			diskParamCount   = 2
 			speedParamCount  = 4
 		)
-		memory, err := msg.GetUIntArray(framework.ParamKeyMemory)
+		memory, err := msg.GetUIntArray(vm_utils.ParamKeyMemory)
 		if err != nil {
 			return data, err
 		}
 		if memoryParamCount != len(memory) {
 			return data, fmt.Errorf("invalid memory param count %d", len(memory))
 		}
-		disk, err := msg.GetUIntArray(framework.ParamKeyDisk)
+		disk, err := msg.GetUIntArray(vm_utils.ParamKeyDisk)
 		if err != nil {
 			return data, err
 		}
 		if diskParamCount != len(disk) {
 			return data, fmt.Errorf("invalid disk param count %d", len(disk))
 		}
-		speed, err := msg.GetUIntArray(framework.ParamKeySpeed)
+		speed, err := msg.GetUIntArray(vm_utils.ParamKeySpeed)
 		if err != nil {
 			return data, err
 		}
@@ -1110,20 +1112,20 @@ func (module *APIModule) getComputeCellStatus(w http.ResponseWriter, r *http.Req
 }
 
 func (module *APIModule) handleQueryInstanceStatusInPool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var poolName = params.ByName("pool")
-	if "" == poolName{
+	if "" == poolName {
 		err := errors.New("must specify target pool")
 		log.Printf("<api> query instance in pool fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.QueryInstanceStatusRequest)
-	msg.SetString(framework.ParamKeyPool, poolName)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QueryInstanceStatusRequest)
+	msg.SetString(vm_utils.ParamKeyPool, poolName)
 
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -1138,7 +1140,7 @@ func (module *APIModule) handleQueryInstanceStatusInPool(w http.ResponseWriter, 
 		return
 	}
 	result, err := UnmarshalGuestConfigListFromMessage(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse query instance in pool result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -1147,12 +1149,12 @@ func (module *APIModule) handleQueryInstanceStatusInPool(w http.ResponseWriter, 
 }
 
 func (module *APIModule) handleQueryInstanceStatusInCell(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var poolName = params.ByName("pool")
-	if "" == poolName{
+	if "" == poolName {
 		err := errors.New("must specify target pool")
 		log.Printf("<api> query instance in cell fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
@@ -1160,16 +1162,16 @@ func (module *APIModule) handleQueryInstanceStatusInCell(w http.ResponseWriter, 
 	}
 
 	var cellName = params.ByName("cell")
-	if "" == cellName{
+	if "" == cellName {
 		err := errors.New("must specify target cell")
 		log.Printf("<api> query instance in cell fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.QueryInstanceStatusRequest)
-	msg.SetString(framework.ParamKeyPool, poolName)
-	msg.SetString(framework.ParamKeyCell, cellName)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QueryInstanceStatusRequest)
+	msg.SetString(vm_utils.ParamKeyPool, poolName)
+	msg.SetString(vm_utils.ParamKeyCell, cellName)
 
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -1184,7 +1186,7 @@ func (module *APIModule) handleQueryInstanceStatusInCell(w http.ResponseWriter, 
 		return
 	}
 	result, err := UnmarshalGuestConfigListFromMessage(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse query instance in cell result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -1193,13 +1195,13 @@ func (module *APIModule) handleQueryInstanceStatusInCell(w http.ResponseWriter, 
 }
 
 func (module *APIModule) handleCreateComputePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	pool := params.ByName("pool")
 	rawData, err := ioutil.ReadAll(r.Body)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> read create compute pool param fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -1210,19 +1212,19 @@ func (module *APIModule) handleCreateComputePool(w http.ResponseWriter, r *http.
 		Failover bool   `json:"failover,omitempty"`
 	}
 	var requestData UserRequest
-	if 0 != len(rawData){
+	if 0 != len(rawData) {
 		//body available
-		if err = json.Unmarshal(rawData, &requestData); err != nil{
+		if err = json.Unmarshal(rawData, &requestData); err != nil {
 			log.Printf("<api> parse create compute pool request fail: %s", err.Error())
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 	}
-	msg, _ := framework.CreateJsonMessage(framework.CreateComputePoolRequest)
-	msg.SetString(framework.ParamKeyPool, pool)
-	msg.SetString(framework.ParamKeyStorage, requestData.Storage)
-	msg.SetString(framework.ParamKeyNetwork, requestData.Network)
-	msg.SetBoolean(framework.ParamKeyOption, requestData.Failover)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.CreateComputePoolRequest)
+	msg.SetString(vm_utils.ParamKeyPool, pool)
+	msg.SetString(vm_utils.ParamKeyStorage, requestData.Storage)
+	msg.SetString(vm_utils.ParamKeyNetwork, requestData.Network)
+	msg.SetBoolean(vm_utils.ParamKeyOption, requestData.Failover)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> request create compute pool fail: %s", err.Error())
@@ -1239,13 +1241,13 @@ func (module *APIModule) handleCreateComputePool(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleDeleteComputePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	pool := params.ByName("pool")
-	msg, _ := framework.CreateJsonMessage(framework.DeleteComputePoolRequest)
-	msg.SetString(framework.ParamKeyPool, pool)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.DeleteComputePoolRequest)
+	msg.SetString(vm_utils.ParamKeyPool, pool)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> request delete compute pool fail: %s", err.Error())
@@ -1261,8 +1263,8 @@ func (module *APIModule) handleDeleteComputePool(w http.ResponseWriter, r *http.
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleModifyComputePool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleModifyComputePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -1275,16 +1277,16 @@ func (module *APIModule) handleModifyComputePool(w http.ResponseWriter, r *http.
 	}
 	var requestData UserRequest
 	var decoder = json.NewDecoder(r.Body)
-	if err := decoder.Decode(&requestData); err != nil{
+	if err := decoder.Decode(&requestData); err != nil {
 		log.Printf("<api> parse delete compute pool request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg, _ := framework.CreateJsonMessage(framework.ModifyComputePoolRequest)
-	msg.SetString(framework.ParamKeyPool, pool)
-	msg.SetString(framework.ParamKeyStorage, requestData.Storage)
-	msg.SetString(framework.ParamKeyNetwork, requestData.Network)
-	msg.SetBoolean(framework.ParamKeyOption, requestData.Failover)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyComputePoolRequest)
+	msg.SetString(vm_utils.ParamKeyPool, pool)
+	msg.SetString(vm_utils.ParamKeyStorage, requestData.Storage)
+	msg.SetString(vm_utils.ParamKeyNetwork, requestData.Network)
+	msg.SetBoolean(vm_utils.ParamKeyOption, requestData.Failover)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> request modify compute pool fail: %s", err.Error())
@@ -1300,12 +1302,12 @@ func (module *APIModule) handleModifyComputePool(w http.ResponseWriter, r *http.
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleQueryStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleQueryStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg, _ := framework.CreateJsonMessage(framework.QueryStoragePoolRequest)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QueryStoragePoolRequest)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> request query storage pool fail: %s", err.Error())
@@ -1325,19 +1327,19 @@ func (module *APIModule) handleQueryStoragePool(w http.ResponseWriter, r *http.R
 		Target string `json:"target"`
 	}
 
-	parser := func(msg framework.Message) (pools []Pool, err error) {
+	parser := func(msg vm_utils.Message) (pools []Pool, err error) {
 		pools = make([]Pool, 0)
 		var nameArray, typeArray, hostArray, targetArray []string
-		if nameArray, err = msg.GetStringArray(framework.ParamKeyName); err != nil {
+		if nameArray, err = msg.GetStringArray(vm_utils.ParamKeyName); err != nil {
 			return pools, err
 		}
-		if typeArray, err = msg.GetStringArray(framework.ParamKeyType); err != nil {
+		if typeArray, err = msg.GetStringArray(vm_utils.ParamKeyType); err != nil {
 			return pools, err
 		}
-		if hostArray, err = msg.GetStringArray(framework.ParamKeyHost); err != nil {
+		if hostArray, err = msg.GetStringArray(vm_utils.ParamKeyHost); err != nil {
 			return pools, err
 		}
-		if targetArray, err = msg.GetStringArray(framework.ParamKeyTarget); err != nil{
+		if targetArray, err = msg.GetStringArray(vm_utils.ParamKeyTarget); err != nil {
 			return
 		}
 		poolCount := len(nameArray)
@@ -1367,20 +1369,20 @@ func (module *APIModule) handleQueryStoragePool(w http.ResponseWriter, r *http.R
 	ResponseOK(pools, w)
 }
 
-func (module *APIModule) handleGetStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleGetStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	poolName := params.ByName("pool")
-	if "" == poolName{
+	if "" == poolName {
 		err := errors.New("must specify pool name")
 		log.Printf("<api> get storage pool fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg, _ := framework.CreateJsonMessage(framework.GetStoragePoolRequest)
-	msg.SetString(framework.ParamKeyStorage, poolName)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.GetStoragePoolRequest)
+	msg.SetString(vm_utils.ParamKeyStorage, poolName)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> get storage pool fail: %s", err.Error())
@@ -1399,14 +1401,14 @@ func (module *APIModule) handleGetStoragePool(w http.ResponseWriter, r *http.Req
 		Target string `json:"target"`
 	}
 
-	parser := func(msg framework.Message) (pool Pool, err error) {
-		if pool.Type, err = msg.GetString(framework.ParamKeyType); err != nil {
+	parser := func(msg vm_utils.Message) (pool Pool, err error) {
+		if pool.Type, err = msg.GetString(vm_utils.ParamKeyType); err != nil {
 			return
 		}
-		if pool.Host, err = msg.GetString(framework.ParamKeyHost); err != nil{
+		if pool.Host, err = msg.GetString(vm_utils.ParamKeyHost); err != nil {
 			return
 		}
-		if pool.Target, err = msg.GetString(framework.ParamKeyTarget); err != nil{
+		if pool.Target, err = msg.GetString(vm_utils.ParamKeyTarget); err != nil {
 			return
 		}
 		return
@@ -1421,29 +1423,29 @@ func (module *APIModule) handleGetStoragePool(w http.ResponseWriter, r *http.Req
 	ResponseOK(pool, w)
 }
 
-func (module *APIModule) handleCreateStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleCreateStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	pool := params.ByName("pool")
 	type UserRequest struct {
-		Type string `json:"type"`
-		Host string `json:"host,omitempty"`
+		Type   string `json:"type"`
+		Host   string `json:"host,omitempty"`
 		Target string `json:"target,omitempty"`
 	}
 	var requestData UserRequest
 	var decoder = json.NewDecoder(r.Body)
-	if err := decoder.Decode(&requestData); err != nil{
+	if err := decoder.Decode(&requestData); err != nil {
 		log.Printf("<api> parse create storage pool request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg, _ := framework.CreateJsonMessage(framework.CreateStoragePoolRequest)
-	msg.SetString(framework.ParamKeyStorage, pool)
-	msg.SetString(framework.ParamKeyType, requestData.Type)
-	msg.SetString(framework.ParamKeyHost, requestData.Host)
-	msg.SetString(framework.ParamKeyTarget, requestData.Target)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.CreateStoragePoolRequest)
+	msg.SetString(vm_utils.ParamKeyStorage, pool)
+	msg.SetString(vm_utils.ParamKeyType, requestData.Type)
+	msg.SetString(vm_utils.ParamKeyHost, requestData.Host)
+	msg.SetString(vm_utils.ParamKeyTarget, requestData.Target)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> request create storage pool fail: %s", err.Error())
@@ -1459,29 +1461,29 @@ func (module *APIModule) handleCreateStoragePool(w http.ResponseWriter, r *http.
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleModifyStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleModifyStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	pool := params.ByName("pool")
 	type UserRequest struct {
-		Type string `json:"type"`
-		Host string `json:"host,omitempty"`
+		Type   string `json:"type"`
+		Host   string `json:"host,omitempty"`
 		Target string `json:"target,omitempty"`
 	}
 	var requestData UserRequest
 	var decoder = json.NewDecoder(r.Body)
-	if err := decoder.Decode(&requestData); err != nil{
+	if err := decoder.Decode(&requestData); err != nil {
 		log.Printf("<api> parse modify storage pool request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg, _ := framework.CreateJsonMessage(framework.ModifyStoragePoolRequest)
-	msg.SetString(framework.ParamKeyStorage, pool)
-	msg.SetString(framework.ParamKeyType, requestData.Type)
-	msg.SetString(framework.ParamKeyHost, requestData.Host)
-	msg.SetString(framework.ParamKeyTarget, requestData.Target)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyStoragePoolRequest)
+	msg.SetString(vm_utils.ParamKeyStorage, pool)
+	msg.SetString(vm_utils.ParamKeyType, requestData.Type)
+	msg.SetString(vm_utils.ParamKeyHost, requestData.Host)
+	msg.SetString(vm_utils.ParamKeyTarget, requestData.Target)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> request modify storage pool fail: %s", err.Error())
@@ -1497,14 +1499,14 @@ func (module *APIModule) handleModifyStoragePool(w http.ResponseWriter, r *http.
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleDeleteStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleDeleteStoragePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	pool := params.ByName("pool")
-	msg, _ := framework.CreateJsonMessage(framework.DeleteStoragePoolRequest)
-	msg.SetString(framework.ParamKeyStorage, pool)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.DeleteStoragePoolRequest)
+	msg.SetString(vm_utils.ParamKeyStorage, pool)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> request delete storage pool fail: %s", err.Error())
@@ -1521,15 +1523,15 @@ func (module *APIModule) handleDeleteStoragePool(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleAddComputeCell(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	pool := params.ByName("pool")
 	cell := params.ByName("cell")
-	msg, _ := framework.CreateJsonMessage(framework.AddComputePoolCellRequest)
-	msg.SetString(framework.ParamKeyPool, pool)
-	msg.SetString(framework.ParamKeyCell, cell)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.AddComputePoolCellRequest)
+	msg.SetString(vm_utils.ParamKeyPool, pool)
+	msg.SetString(vm_utils.ParamKeyCell, cell)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequestTimeout(msg, 10*time.Second, respChan); err != nil {
 		log.Printf("<api> add compute cell fail: %s", err.Error())
@@ -1546,15 +1548,15 @@ func (module *APIModule) handleAddComputeCell(w http.ResponseWriter, r *http.Req
 }
 
 func (module *APIModule) handleRemoveComputeCell(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	pool := params.ByName("pool")
 	cell := params.ByName("cell")
-	msg, _ := framework.CreateJsonMessage(framework.RemoveComputePoolCellRequest)
-	msg.SetString(framework.ParamKeyPool, pool)
-	msg.SetString(framework.ParamKeyCell, cell)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.RemoveComputePoolCellRequest)
+	msg.SetString(vm_utils.ParamKeyPool, pool)
+	msg.SetString(vm_utils.ParamKeyCell, cell)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> remove compute cell fail: %s", err.Error())
@@ -1571,7 +1573,7 @@ func (module *APIModule) handleRemoveComputeCell(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleModifyComputeCell(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -1582,23 +1584,23 @@ func (module *APIModule) handleModifyComputeCell(w http.ResponseWriter, r *http.
 	}
 	var requestData UserRequest
 	var decoder = json.NewDecoder(r.Body)
-	if err := decoder.Decode(&requestData); err != nil{
+	if err := decoder.Decode(&requestData); err != nil {
 		log.Printf("<api> parse modify cell request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var operateName string
-	var msg framework.Message
+	var msg vm_utils.Message
 	if requestData.Enable {
 		operateName = "enable"
-		msg, _ = framework.CreateJsonMessage(framework.EnableComputePoolCellRequest)
-	}else{
+		msg, _ = vm_utils.CreateJsonMessage(vm_utils.EnableComputePoolCellRequest)
+	} else {
 		operateName = "disable"
-		msg, _ = framework.CreateJsonMessage(framework.DisableComputePoolCellRequest)
+		msg, _ = vm_utils.CreateJsonMessage(vm_utils.DisableComputePoolCellRequest)
 	}
 
-	msg.SetString(framework.ParamKeyPool, pool)
-	msg.SetString(framework.ParamKeyCell, cell)
+	msg.SetString(vm_utils.ParamKeyPool, pool)
+	msg.SetString(vm_utils.ParamKeyCell, cell)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> request %s cell fail: %s", operateName, err.Error())
@@ -1615,16 +1617,16 @@ func (module *APIModule) handleModifyComputeCell(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleGetComputeCell(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	pool := params.ByName("pool")
 	cell := params.ByName("cell")
 
-	msg, _ := framework.CreateJsonMessage(framework.GetComputePoolCellRequest)
-	msg.SetString(framework.ParamKeyPool, pool)
-	msg.SetString(framework.ParamKeyCell, cell)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.GetComputePoolCellRequest)
+	msg.SetString(vm_utils.ParamKeyPool, pool)
+	msg.SetString(vm_utils.ParamKeyCell, cell)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> request get compute cell fail: %s", err.Error())
@@ -1650,41 +1652,41 @@ func (module *APIModule) handleGetComputeCell(w http.ResponseWriter, r *http.Req
 		Storage []StorageStatus `json:"storage,omitempty"`
 	}
 
-	parser := func(msg framework.Message) (data ResponseData, err error) {
-		if data.Name, err = msg.GetString(framework.ParamKeyName); err != nil {
+	parser := func(msg vm_utils.Message) (data ResponseData, err error) {
+		if data.Name, err = msg.GetString(vm_utils.ParamKeyName); err != nil {
 			return data, err
 		}
-		if data.Address, err = msg.GetString(framework.ParamKeyAddress); err != nil {
+		if data.Address, err = msg.GetString(vm_utils.ParamKeyAddress); err != nil {
 			return data, err
 		}
-		if data.Enabled, err = msg.GetBoolean(framework.ParamKeyEnable); err != nil {
+		if data.Enabled, err = msg.GetBoolean(vm_utils.ParamKeyEnable); err != nil {
 			return data, err
 		}
-		if data.Alive, err = msg.GetBoolean(framework.ParamKeyStatus); err != nil {
+		if data.Alive, err = msg.GetBoolean(vm_utils.ParamKeyStatus); err != nil {
 			return data, err
 		}
-		if data.Alive && data.Enabled{
+		if data.Alive && data.Enabled {
 			var storage, errors []string
 			var attached []uint64
-			if storage, err = msg.GetStringArray(framework.ParamKeyStorage); err != nil{
+			if storage, err = msg.GetStringArray(vm_utils.ParamKeyStorage); err != nil {
 				return
 			}
-			if errors, err = msg.GetStringArray(framework.ParamKeyError);err != nil{
+			if errors, err = msg.GetStringArray(vm_utils.ParamKeyError); err != nil {
 				return
 			}
-			if attached, err = msg.GetUIntArray(framework.ParamKeyAttach); err != nil{
+			if attached, err = msg.GetUIntArray(vm_utils.ParamKeyAttach); err != nil {
 				return
 			}
 			var storageCount = len(storage)
-			if 0 == storageCount{
+			if 0 == storageCount {
 				return
 			}
 			var index = 0
-			for ; index < storageCount; index++{
+			for ; index < storageCount; index++ {
 				var pool = StorageStatus{Name: storage[index]}
-				if 1 == attached[index]{
+				if 1 == attached[index] {
 					pool.Attached = true
-				}else{
+				} else {
 					pool.Attached = false
 					pool.Error = errors[index]
 				}
@@ -1705,11 +1707,11 @@ func (module *APIModule) handleGetComputeCell(w http.ResponseWriter, r *http.Req
 }
 
 func (module *APIModule) handleQueryUnallocatedCell(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg, _ := framework.CreateJsonMessage(framework.QueryUnallocatedComputePoolCellRequest)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QueryUnallocatedComputePoolCellRequest)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> query unallocated cells fail: %s", err.Error())
@@ -1732,13 +1734,13 @@ func (module *APIModule) handleQueryUnallocatedCell(w http.ResponseWriter, r *ht
 }
 
 func (module *APIModule) handleQueryCellsInPool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	pool := params.ByName("pool")
-	msg, _ := framework.CreateJsonMessage(framework.QueryComputePoolCellRequest)
-	msg.SetString(framework.ParamKeyPool, pool)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QueryComputePoolCellRequest)
+	msg.SetString(vm_utils.ParamKeyPool, pool)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> query cells in pool fail: %s", err.Error())
@@ -1761,11 +1763,11 @@ func (module *APIModule) handleQueryCellsInPool(w http.ResponseWriter, r *http.R
 }
 
 func (module *APIModule) handleQueryAllPools(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg, _ := framework.CreateJsonMessage(framework.QueryComputePoolRequest)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QueryComputePoolRequest)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> query pool fail: %s", err.Error())
@@ -1787,26 +1789,26 @@ func (module *APIModule) handleQueryAllPools(w http.ResponseWriter, r *http.Requ
 		Failover bool   `json:"failover"`
 	}
 
-	parser := func(msg framework.Message) (pools []Pool, err error) {
+	parser := func(msg vm_utils.Message) (pools []Pool, err error) {
 		pools = make([]Pool, 0)
 		var nameArray, networkArray, storageArray []string
 		var cellArray, statusArray, failoverArray []uint64
-		if nameArray, err = msg.GetStringArray(framework.ParamKeyName); err != nil {
+		if nameArray, err = msg.GetStringArray(vm_utils.ParamKeyName); err != nil {
 			return pools, err
 		}
-		if networkArray, err = msg.GetStringArray(framework.ParamKeyNetwork); err != nil {
+		if networkArray, err = msg.GetStringArray(vm_utils.ParamKeyNetwork); err != nil {
 			return pools, err
 		}
-		if storageArray, err = msg.GetStringArray(framework.ParamKeyStorage); err != nil {
+		if storageArray, err = msg.GetStringArray(vm_utils.ParamKeyStorage); err != nil {
 			return pools, err
 		}
-		if cellArray, err = msg.GetUIntArray(framework.ParamKeyCell); err != nil {
+		if cellArray, err = msg.GetUIntArray(vm_utils.ParamKeyCell); err != nil {
 			return pools, err
 		}
-		if statusArray, err = msg.GetUIntArray(framework.ParamKeyStatus); err != nil {
+		if statusArray, err = msg.GetUIntArray(vm_utils.ParamKeyStatus); err != nil {
 			return pools, err
 		}
-		if failoverArray, err = msg.GetUIntArray(framework.ParamKeyOption); err != nil {
+		if failoverArray, err = msg.GetUIntArray(vm_utils.ParamKeyOption); err != nil {
 			return pools, err
 		}
 		poolCount := len(nameArray)
@@ -1847,19 +1849,19 @@ func (module *APIModule) handleQueryAllPools(w http.ResponseWriter, r *http.Requ
 }
 
 func (module *APIModule) handleGetComputePool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	poolName := params.ByName("pool")
-	if "" == poolName{
+	if "" == poolName {
 		err := errors.New("must specify pool name")
 		log.Printf("<api> get compute pool fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg, _ := framework.CreateJsonMessage(framework.GetComputePoolRequest)
-	msg.SetString(framework.ParamKeyPool, poolName)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.GetComputePoolRequest)
+	msg.SetString(vm_utils.ParamKeyPool, poolName)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> get compute pool fail: %s", err.Error())
@@ -1881,23 +1883,23 @@ func (module *APIModule) handleGetComputePool(w http.ResponseWriter, r *http.Req
 		Failover bool   `json:"failover"`
 	}
 
-	parser := func(msg framework.Message) (pool Pool, err error) {
-		if pool.Name, err = msg.GetString(framework.ParamKeyName); err != nil {
+	parser := func(msg vm_utils.Message) (pool Pool, err error) {
+		if pool.Name, err = msg.GetString(vm_utils.ParamKeyName); err != nil {
 			return
 		}
-		if pool.Enabled, err = msg.GetBoolean(framework.ParamKeyEnable); err != nil{
+		if pool.Enabled, err = msg.GetBoolean(vm_utils.ParamKeyEnable); err != nil {
 			return
 		}
-		if pool.Cells, err = msg.GetUInt(framework.ParamKeyCell);err != nil{
+		if pool.Cells, err = msg.GetUInt(vm_utils.ParamKeyCell); err != nil {
 			return
 		}
-		if pool.Network, err = msg.GetString(framework.ParamKeyNetwork); err != nil{
+		if pool.Network, err = msg.GetString(vm_utils.ParamKeyNetwork); err != nil {
 			return
 		}
-		if pool.Storage, err = msg.GetString(framework.ParamKeyStorage); err != nil{
+		if pool.Storage, err = msg.GetString(vm_utils.ParamKeyStorage); err != nil {
 			return
 		}
-		if pool.Failover, err = msg.GetBoolean(framework.ParamKeyOption); err != nil{
+		if pool.Failover, err = msg.GetBoolean(vm_utils.ParamKeyOption); err != nil {
 			return
 		}
 		return
@@ -1912,10 +1914,8 @@ func (module *APIModule) handleGetComputePool(w http.ResponseWriter, r *http.Req
 	ResponseOK(pool, w)
 }
 
-
-
 func (module *APIModule) handleQueryGuestConfig(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -1936,97 +1936,97 @@ func (module *APIModule) handleQueryGuestConfig(w http.ResponseWriter, r *http.R
 	var err error
 	query := r.URL.Query()
 	request.Pool = query.Get("pool")
-	if request.Cell = query.Get("cell");request.Cell != ""{
+	if request.Cell = query.Get("cell"); request.Cell != "" {
 		request.InCell = true
 	}
-	if request.Owner = query.Get("owner");request.Owner != ""{
+	if request.Owner = query.Get("owner"); request.Owner != "" {
 		request.WithOwner = true
 	}
-	if request.Group = query.Get("group");request.Group != ""{
+	if request.Group = query.Get("group"); request.Group != "" {
 		request.WithGroup = true
 	}
-	if status := query.Get("status");status != ""{
+	if status := query.Get("status"); status != "" {
 		request.WithStatus = true
 		request.Status, err = strconv.Atoi(status)
-		if err != nil{
+		if err != nil {
 			log.Printf("<api> parse query guest request fail: %s", err.Error())
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 	}
-	if created := query.Get("created");created != ""{
+	if created := query.Get("created"); created != "" {
 		request.WithCreateFlag = true
 		request.Created, err = strconv.ParseBool(created)
-		if err != nil{
+		if err != nil {
 			log.Printf("<api> parse query guest request fail: %s", err.Error())
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.QueryGuestRequest)
-	if "" == request.Pool{
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QueryGuestRequest)
+	if "" == request.Pool {
 		err := errors.New("must specify target pool")
 		log.Printf("<api> build query guest request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg.SetString(framework.ParamKeyPool, request.Pool)
+	msg.SetString(vm_utils.ParamKeyPool, request.Pool)
 	var options []uint64
-	if request.InCell{
+	if request.InCell {
 		options = append(options, 1)
-		if "" == request.Cell{
+		if "" == request.Cell {
 			err := errors.New("must specify target cell")
 			log.Printf("<api> build query guest request fail: %s", err.Error())
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
-		msg.SetString(framework.ParamKeyCell, request.Cell)
-	}else{
+		msg.SetString(vm_utils.ParamKeyCell, request.Cell)
+	} else {
 		options = append(options, 0)
 	}
 
-	if request.WithOwner{
+	if request.WithOwner {
 		options = append(options, 1)
-		if "" == request.Owner{
+		if "" == request.Owner {
 			err := errors.New("must specify instance owner")
 			log.Printf("<api> build query guest request fail: %s", err.Error())
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
-		msg.SetString(framework.ParamKeyUser, request.Owner)
-	}else{
+		msg.SetString(vm_utils.ParamKeyUser, request.Owner)
+	} else {
 		options = append(options, 0)
 	}
 
-	if request.WithGroup{
+	if request.WithGroup {
 		options = append(options, 1)
-		if "" == request.Group{
+		if "" == request.Group {
 			err := errors.New("must specify instance group")
 			log.Printf("<api> build query guest request fail: %s", err.Error())
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
-		msg.SetString(framework.ParamKeyGroup, request.Group)
-	}else{
+		msg.SetString(vm_utils.ParamKeyGroup, request.Group)
+	} else {
 		options = append(options, 0)
 	}
 
-	if request.WithStatus{
+	if request.WithStatus {
 		options = append(options, 1)
-		msg.SetUInt(framework.ParamKeyStatus, uint(request.Status))
-	}else{
+		msg.SetUInt(vm_utils.ParamKeyStatus, uint(request.Status))
+	} else {
 		options = append(options, 0)
 	}
 
-	if request.WithCreateFlag{
+	if request.WithCreateFlag {
 		options = append(options, 1)
-		msg.SetBoolean(framework.ParamKeyEnable, request.Created)
-	}else{
+		msg.SetBoolean(vm_utils.ParamKeyEnable, request.Created)
+	} else {
 		options = append(options, 0)
 	}
 
-	msg.SetUIntArray(framework.ParamKeyOption, options)
+	msg.SetUIntArray(vm_utils.ParamKeyOption, options)
 
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -2041,7 +2041,7 @@ func (module *APIModule) handleQueryGuestConfig(w http.ResponseWriter, r *http.R
 		return
 	}
 	result, err := UnmarshalGuestConfigListFromMessage(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse query result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -2051,15 +2051,15 @@ func (module *APIModule) handleQueryGuestConfig(w http.ResponseWriter, r *http.R
 
 func (module *APIModule) redirectToImageServer(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyStreamSignature(r)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> verify stream fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, "unauthorized stream", w)
 		return
 	}
 	var respChan = make(chan ResourceResult, 1)
 	module.resource.GetImageServer(respChan)
-	var result = <- respChan
-	if result.Error != nil{
+	var result = <-respChan
+	if result.Error != nil {
 		var err = result.Error
 		log.Printf("<api> fetch current image server fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
@@ -2070,19 +2070,19 @@ func (module *APIModule) redirectToImageServer(w http.ResponseWriter, r *http.Re
 	const (
 		DefaultProtocol = "https"
 	)
-	var address = fmt.Sprintf("%s://%s:%d",DefaultProtocol, imageHost, imagePort)
-	if address == module.currentImageURL{
+	var address = fmt.Sprintf("%s://%s:%d", DefaultProtocol, imageHost, imagePort)
+	if address == module.currentImageURL {
 		//not changed
 		r.Host = module.currentImageHost
 		module.currentImageProxy.ServeHTTP(w, r)
 		return
 	}
 	//update new URL
-	if url, err := url.Parse(address);err != nil{
+	if url, err := url.Parse(address); err != nil {
 		log.Printf("<api> parse image proxy url fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
-	}else{
+	} else {
 		module.currentImageHost = imageHost
 		module.currentImageURL = address
 		module.currentImageProxy = httputil.NewSingleHostReverseProxy(url)
@@ -2095,13 +2095,13 @@ func (module *APIModule) redirectToImageServer(w http.ResponseWriter, r *http.Re
 }
 
 func (module *APIModule) handleGetGuestConfig(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	id := params.ByName("id")
-	msg, _ := framework.CreateJsonMessage(framework.GetGuestRequest)
-	msg.SetString(framework.ParamKeyInstance, id)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.GetGuestRequest)
+	msg.SetString(vm_utils.ParamKeyInstance, id)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send get guest request fail: %s", err.Error())
@@ -2115,23 +2115,22 @@ func (module *APIModule) handleGetGuestConfig(w http.ResponseWriter, r *http.Req
 		return
 	}
 	var config restGuestConfig
-	if err := config.Unmarshal(resp);err != nil{
+	if err := config.Unmarshal(resp); err != nil {
 		log.Printf("<api> parse guest config fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if !config.Created{
+	if !config.Created {
 		w.WriteHeader(http.StatusCreated)
-	}else{
+	} else {
 		w.WriteHeader(http.StatusOK)
 	}
 	ResponseOK(config, w)
 }
 
-
 func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err error
-	if err = module.verifyRequestSignature(r); err != nil{
+	if err = module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -2164,111 +2163,111 @@ func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Reques
 
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse create guest request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	var validator = func(config userRequest) (err error){
-		if "" == config.Name{
+	var validator = func(config userRequest) (err error) {
+		if "" == config.Name {
 			err = fmt.Errorf("name required")
 			return
 		}
-		if "" == config.Owner{
+		if "" == config.Owner {
 			err = fmt.Errorf("owner required")
 			return
 		}
-		if "" == config.Group{
+		if "" == config.Group {
 			err = fmt.Errorf("group required")
 			return
 		}
-		if "" == config.Pool{
+		if "" == config.Pool {
 			err = fmt.Errorf("target pool required")
 			return
 		}
-		if "" == config.Template{
+		if "" == config.Template {
 			err = fmt.Errorf("system template required")
 			return
 		}
-		if 0 == config.Cores{
+		if 0 == config.Cores {
 			err = fmt.Errorf("cores required")
 			return
 		}
-		if 0 == config.Memory{
+		if 0 == config.Memory {
 			err = fmt.Errorf("memory required")
 			return
 		}
 		return nil
 	}
 
-	if err = validator(request); err != nil{
+	if err = validator(request); err != nil {
 		log.Printf("<api> validate create guest request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.CreateGuestRequest)
-	msg.SetString(framework.ParamKeyName, request.Name)
-	msg.SetString(framework.ParamKeyUser, request.Owner)
-	msg.SetString(framework.ParamKeyGroup, request.Group)
-	msg.SetString(framework.ParamKeyPool, request.Pool)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.CreateGuestRequest)
+	msg.SetString(vm_utils.ParamKeyName, request.Name)
+	msg.SetString(vm_utils.ParamKeyUser, request.Owner)
+	msg.SetString(vm_utils.ParamKeyGroup, request.Group)
+	msg.SetString(vm_utils.ParamKeyPool, request.Pool)
 
-	msg.SetUInt(framework.ParamKeyCore, request.Cores)
-	msg.SetUInt(framework.ParamKeyMemory, request.Memory)
-	msg.SetUIntArray(framework.ParamKeyDisk, request.Disks)
-	msg.SetBoolean(framework.ParamKeyOption, request.AutoStart)
-	msg.SetString(framework.ParamKeyTemplate, request.Template)
-	msg.SetString(framework.ParamKeyPolicy, request.SecurityPolicyGroup)
+	msg.SetUInt(vm_utils.ParamKeyCore, request.Cores)
+	msg.SetUInt(vm_utils.ParamKeyMemory, request.Memory)
+	msg.SetUIntArray(vm_utils.ParamKeyDisk, request.Disks)
+	msg.SetBoolean(vm_utils.ParamKeyOption, request.AutoStart)
+	msg.SetString(vm_utils.ParamKeyTemplate, request.Template)
+	msg.SetString(vm_utils.ParamKeyPolicy, request.SecurityPolicyGroup)
 	//optional disk image
-	if "" != request.FromImage{
-		msg.SetString(framework.ParamKeyImage, request.FromImage)
+	if "" != request.FromImage {
+		msg.SetString(vm_utils.ParamKeyImage, request.FromImage)
 	}
-	msg.SetStringArray(framework.ParamKeyModule, request.Modules)
+	msg.SetStringArray(vm_utils.ParamKeyModule, request.Modules)
 	const (
 		RootLoginDisabled = iota
 		RootLoginEnabled
 	)
 	var flags []uint64
-	if nil != request.CloudInit{
-		msg.SetString(framework.ParamKeyAdmin, request.CloudInit.AdminName)
-		msg.SetString(framework.ParamKeySecret, request.CloudInit.AdminSecret)
-		msg.SetString(framework.ParamKeyPath, request.CloudInit.DataPath)
-		if request.CloudInit.RootEnabled{
+	if nil != request.CloudInit {
+		msg.SetString(vm_utils.ParamKeyAdmin, request.CloudInit.AdminName)
+		msg.SetString(vm_utils.ParamKeySecret, request.CloudInit.AdminSecret)
+		msg.SetString(vm_utils.ParamKeyPath, request.CloudInit.DataPath)
+		if request.CloudInit.RootEnabled {
 			flags = append(flags, RootLoginEnabled)
-		}else{
+		} else {
 			flags = append(flags, RootLoginDisabled)
 		}
 
-	}else{
-		msg.SetString(framework.ParamKeyAdmin, "")
-		msg.SetString(framework.ParamKeySecret, "")
-		msg.SetString(framework.ParamKeyPath, "")
+	} else {
+		msg.SetString(vm_utils.ParamKeyAdmin, "")
+		msg.SetString(vm_utils.ParamKeySecret, "")
+		msg.SetString(vm_utils.ParamKeyPath, "")
 		flags = append(flags, RootLoginEnabled)
 	}
 
-	if nil != request.QoS{
+	if nil != request.QoS {
 		var qos = request.QoS
 		switch qos.CPUPriority {
 		case priority_label_high:
-			msg.SetUInt(framework.ParamKeyPriority, PriorityHigh)
+			msg.SetUInt(vm_utils.ParamKeyPriority, PriorityHigh)
 		case priority_label_medium:
-			msg.SetUInt(framework.ParamKeyPriority, PriorityMedium)
+			msg.SetUInt(vm_utils.ParamKeyPriority, PriorityMedium)
 		case priority_label_low:
-			msg.SetUInt(framework.ParamKeyPriority, PriorityLow)
+			msg.SetUInt(vm_utils.ParamKeyPriority, PriorityLow)
 		default:
 			var err = fmt.Errorf("invalid CPU priority %s", qos.CPUPriority)
 			log.Printf("<api> invalid create request with CPU priority: %s", qos.CPUPriority)
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
-		msg.SetUIntArray(framework.ParamKeyLimit, []uint64{qos.ReadSpeed, qos.WriteSpeed,
+		msg.SetUIntArray(vm_utils.ParamKeyLimit, []uint64{qos.ReadSpeed, qos.WriteSpeed,
 			qos.ReadIOPS, qos.WriteIOPS, qos.ReceiveSpeed, qos.SendSpeed})
-	}else{
-		msg.SetUInt(framework.ParamKeyPriority, PriorityHigh)
-		msg.SetUIntArray(framework.ParamKeyLimit, []uint64{0, 0, 0, 0, 0, 0})
+	} else {
+		msg.SetUInt(vm_utils.ParamKeyPriority, PriorityHigh)
+		msg.SetUIntArray(vm_utils.ParamKeyLimit, []uint64{0, 0, 0, 0, 0, 0})
 	}
-	msg.SetUIntArray(framework.ParamKeyFlag, flags)
+	msg.SetUIntArray(vm_utils.ParamKeyFlag, flags)
 
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -2282,14 +2281,14 @@ func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Reques
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	created, err := resp.GetBoolean(framework.ParamKeyEnable)
-	if err != nil{
+	created, err := resp.GetBoolean(vm_utils.ParamKeyEnable)
+	if err != nil {
 		log.Printf("<api> parse create result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	id, err := resp.GetString(framework.ParamKeyInstance)
-	if err != nil{
+	id, err := resp.GetString(vm_utils.ParamKeyInstance)
+	if err != nil {
 		log.Printf("<api> parse instance id fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -2298,17 +2297,17 @@ func (module *APIModule) handleCreateGuest(w http.ResponseWriter, r *http.Reques
 		ID string `json:"id"`
 	}
 
-	var result = userResponse{ID:id}
-	if !created{
+	var result = userResponse{ID: id}
+	if !created {
 		w.WriteHeader(http.StatusAccepted)
-	}else{
+	} else {
 		w.WriteHeader(http.StatusOK)
 	}
 	ResponseOK(result, w)
 }
 
 func (module *APIModule) handleDeleteGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -2318,18 +2317,18 @@ func (module *APIModule) handleDeleteGuest(w http.ResponseWriter, r *http.Reques
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse delete guest request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.DeleteGuestRequest)
-	msg.SetString(framework.ParamKeyInstance, id)
-	if request.Force{
-		msg.SetUInt(framework.ParamKeyOption, 1)
-	}else {
-		msg.SetUInt(framework.ParamKeyOption, 0)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.DeleteGuestRequest)
+	msg.SetString(vm_utils.ParamKeyInstance, id)
+	if request.Force {
+		msg.SetUInt(vm_utils.ParamKeyOption, 1)
+	} else {
+		msg.SetUInt(vm_utils.ParamKeyOption, 0)
 	}
 
 	respChan := make(chan ProxyResult)
@@ -2348,13 +2347,13 @@ func (module *APIModule) handleDeleteGuest(w http.ResponseWriter, r *http.Reques
 }
 
 func (module *APIModule) handleGetInstanceStatus(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	id := params.ByName("id")
-	msg, _ := framework.CreateJsonMessage(framework.GetInstanceStatusRequest)
-	msg.SetString(framework.ParamKeyInstance, id)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.GetInstanceStatusRequest)
+	msg.SetString(vm_utils.ParamKeyInstance, id)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send get instance request fail: %s", err.Error())
@@ -2368,7 +2367,7 @@ func (module *APIModule) handleGetInstanceStatus(w http.ResponseWriter, r *http.
 		return
 	}
 	var status restInstanceStatus
-	if err := status.Unmarshal(resp);err != nil{
+	if err := status.Unmarshal(resp); err != nil {
 		log.Printf("<api> parse status fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -2377,33 +2376,33 @@ func (module *APIModule) handleGetInstanceStatus(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleStartInstance(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	id := params.ByName("id")
 	type userRequest struct {
-		FromMedia bool `json:"from_media,omitempty"`
-		FromNetwork bool `json:"from_network,omitempty"`
-		Source string `json:"source,omitempty"`
+		FromMedia   bool   `json:"from_media,omitempty"`
+		FromNetwork bool   `json:"from_network,omitempty"`
+		Source      string `json:"source,omitempty"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse start instance request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg, _ := framework.CreateJsonMessage(framework.StartInstanceRequest)
-	msg.SetString(framework.ParamKeyInstance, id)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.StartInstanceRequest)
+	msg.SetString(vm_utils.ParamKeyInstance, id)
 
-	if request.FromMedia{
-		msg.SetUInt(framework.ParamKeyOption, InstanceMediaOptionImage)
-		msg.SetString(framework.ParamKeySource, request.Source)
-	}else if request.FromNetwork{
-		msg.SetUInt(framework.ParamKeyOption, InstanceMediaOptionNetwork)
-	}else{
-		msg.SetUInt(framework.ParamKeyOption, InstanceMediaOptionNone)
+	if request.FromMedia {
+		msg.SetUInt(vm_utils.ParamKeyOption, InstanceMediaOptionImage)
+		msg.SetString(vm_utils.ParamKeySource, request.Source)
+	} else if request.FromNetwork {
+		msg.SetUInt(vm_utils.ParamKeyOption, InstanceMediaOptionNetwork)
+	} else {
+		msg.SetUInt(vm_utils.ParamKeyOption, InstanceMediaOptionNone)
 	}
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -2421,36 +2420,36 @@ func (module *APIModule) handleStartInstance(w http.ResponseWriter, r *http.Requ
 }
 
 func (module *APIModule) handleStopInstance(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	id := params.ByName("id")
 	type userRequest struct {
 		Reboot bool `json:"reboot,omitempty"`
-		Force bool `json:"force,omitempty"`
+		Force  bool `json:"force,omitempty"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse stop instance request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg, _ := framework.CreateJsonMessage(framework.StopInstanceRequest)
-	msg.SetString(framework.ParamKeyInstance, id)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.StopInstanceRequest)
+	msg.SetString(vm_utils.ParamKeyInstance, id)
 	var options []uint64
-	if request.Reboot{
+	if request.Reboot {
 		options = append(options, 1)
-	}else{
+	} else {
 		options = append(options, 0)
 	}
-	if request.Force{
+	if request.Force {
 		options = append(options, 1)
-	}else{
+	} else {
 		options = append(options, 0)
 	}
-	msg.SetUIntArray(framework.ParamKeyOption, options)
+	msg.SetUIntArray(vm_utils.ParamKeyOption, options)
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send stop instance request fail: %s", err.Error())
@@ -2466,14 +2465,13 @@ func (module *APIModule) handleStopInstance(w http.ResponseWriter, r *http.Reque
 	ResponseOK("", w)
 }
 
-
-func (module *APIModule) searchMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) searchMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var filterOwner = r.URL.Query().Get("owner")
 	var filterGroup = r.URL.Query().Get("group")
 
-	msg, _ := framework.CreateJsonMessage(framework.QueryMediaImageRequest)
-	msg.SetString(framework.ParamKeyUser, filterOwner)
-	msg.SetString(framework.ParamKeyGroup, filterGroup)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QueryMediaImageRequest)
+	msg.SetString(vm_utils.ParamKeyUser, filterOwner)
+	msg.SetString(vm_utils.ParamKeyGroup, filterGroup)
 
 	respChan := make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -2498,47 +2496,47 @@ func (module *APIModule) searchMediaImage(w http.ResponseWriter, r *http.Request
 		ModifyTime  string   `json:"modify_time,omitempty"`
 	}
 
-	var parser = func(msg framework.Message) (images []respImage, err error){
+	var parser = func(msg vm_utils.Message) (images []respImage, err error) {
 		//unmarshal
 		var name, id, description, tags, createTime, modifyTime []string
 		var size, tagCount []uint64
-		if name, err = msg.GetStringArray(framework.ParamKeyName); err != nil{
+		if name, err = msg.GetStringArray(vm_utils.ParamKeyName); err != nil {
 			return
 		}
-		if id, err = msg.GetStringArray(framework.ParamKeyImage); err != nil{
+		if id, err = msg.GetStringArray(vm_utils.ParamKeyImage); err != nil {
 			return
 		}
-		if description, err = msg.GetStringArray(framework.ParamKeyDescription); err != nil{
+		if description, err = msg.GetStringArray(vm_utils.ParamKeyDescription); err != nil {
 			return
 		}
-		if tags, err = msg.GetStringArray(framework.ParamKeyTag); err != nil{
+		if tags, err = msg.GetStringArray(vm_utils.ParamKeyTag); err != nil {
 			return
 		}
-		if createTime, err = msg.GetStringArray(framework.ParamKeyCreate); err != nil{
+		if createTime, err = msg.GetStringArray(vm_utils.ParamKeyCreate); err != nil {
 			return
 		}
-		if modifyTime, err = msg.GetStringArray(framework.ParamKeyModify); err != nil{
+		if modifyTime, err = msg.GetStringArray(vm_utils.ParamKeyModify); err != nil {
 			return
 		}
-		if size, err = msg.GetUIntArray(framework.ParamKeySize); err != nil{
+		if size, err = msg.GetUIntArray(vm_utils.ParamKeySize); err != nil {
 			return
 		}
-		if tagCount, err = msg.GetUIntArray(framework.ParamKeyCount); err != nil{
+		if tagCount, err = msg.GetUIntArray(vm_utils.ParamKeyCount); err != nil {
 			return
 		}
 
 		var totalTags uint64 = 0
-		for _, count := range tagCount{
+		for _, count := range tagCount {
 			totalTags += count
 		}
-		if int(totalTags) != len(tags){
+		if int(totalTags) != len(tags) {
 			err = fmt.Errorf("unexpect tag count %d / %d", len(tags), totalTags)
 			return
 		}
 		var imageCount = len(name)
 		images = make([]respImage, 0)
 		var tagBegin = 0
-		for i := 0 ; i < imageCount;i++{
+		for i := 0; i < imageCount; i++ {
 			var image = respImage{}
 			image.Name = name[i]
 			image.ID = id[i]
@@ -2555,7 +2553,7 @@ func (module *APIModule) searchMediaImage(w http.ResponseWriter, r *http.Request
 	}
 
 	payload, err := parser(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse query media image result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -2563,12 +2561,12 @@ func (module *APIModule) searchMediaImage(w http.ResponseWriter, r *http.Request
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) queryAllMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) queryAllMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg, _ := framework.CreateJsonMessage(framework.QueryMediaImageRequest)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QueryMediaImageRequest)
 	respChan := make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send query media image request fail: %s", err.Error())
@@ -2592,47 +2590,47 @@ func (module *APIModule) queryAllMediaImage(w http.ResponseWriter, r *http.Reque
 		ModifyTime  string   `json:"modify_time,omitempty"`
 	}
 
-	var parser = func(msg framework.Message) (images []respImage, err error){
+	var parser = func(msg vm_utils.Message) (images []respImage, err error) {
 		//unmarshal
 		var name, id, description, tags, createTime, modifyTime []string
 		var size, tagCount []uint64
-		if name, err = msg.GetStringArray(framework.ParamKeyName); err != nil{
+		if name, err = msg.GetStringArray(vm_utils.ParamKeyName); err != nil {
 			return
 		}
-		if id, err = msg.GetStringArray(framework.ParamKeyImage); err != nil{
+		if id, err = msg.GetStringArray(vm_utils.ParamKeyImage); err != nil {
 			return
 		}
-		if description, err = msg.GetStringArray(framework.ParamKeyDescription); err != nil{
+		if description, err = msg.GetStringArray(vm_utils.ParamKeyDescription); err != nil {
 			return
 		}
-		if tags, err = msg.GetStringArray(framework.ParamKeyTag); err != nil{
+		if tags, err = msg.GetStringArray(vm_utils.ParamKeyTag); err != nil {
 			return
 		}
-		if createTime, err = msg.GetStringArray(framework.ParamKeyCreate); err != nil{
+		if createTime, err = msg.GetStringArray(vm_utils.ParamKeyCreate); err != nil {
 			return
 		}
-		if modifyTime, err = msg.GetStringArray(framework.ParamKeyModify); err != nil{
+		if modifyTime, err = msg.GetStringArray(vm_utils.ParamKeyModify); err != nil {
 			return
 		}
-		if size, err = msg.GetUIntArray(framework.ParamKeySize); err != nil{
+		if size, err = msg.GetUIntArray(vm_utils.ParamKeySize); err != nil {
 			return
 		}
-		if tagCount, err = msg.GetUIntArray(framework.ParamKeyCount); err != nil{
+		if tagCount, err = msg.GetUIntArray(vm_utils.ParamKeyCount); err != nil {
 			return
 		}
 
 		var totalTags uint64 = 0
-		for _, count := range tagCount{
+		for _, count := range tagCount {
 			totalTags += count
 		}
-		if int(totalTags) != len(tags){
+		if int(totalTags) != len(tags) {
 			err = fmt.Errorf("unexpect tag count %d / %d", len(tags), totalTags)
 			return
 		}
 		var imageCount = len(name)
 		images = make([]respImage, 0)
 		var tagBegin = 0
-		for i := 0 ; i < imageCount;i++{
+		for i := 0; i < imageCount; i++ {
 			var image = respImage{}
 			image.Name = name[i]
 			image.ID = id[i]
@@ -2649,22 +2647,21 @@ func (module *APIModule) queryAllMediaImage(w http.ResponseWriter, r *http.Reque
 	}
 
 	payload, err := parser(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse query media image result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 	}
 	ResponseOK(payload, w)
 }
 
-
-func (module *APIModule) getMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) getMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var id = params.ByName("id")
-	msg, _ := framework.CreateJsonMessage(framework.GetMediaImageRequest)
-	msg.SetString(framework.ParamKeyImage, id)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.GetMediaImageRequest)
+	msg.SetString(vm_utils.ParamKeyImage, id)
 	var respChan = make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send get media image request fail: %s", err.Error())
@@ -2686,22 +2683,22 @@ func (module *APIModule) getMediaImage(w http.ResponseWriter, r *http.Request, p
 	}
 	var data userResponse
 	var err error
-	if data.Name, err = resp.GetString(framework.ParamKeyName); err != nil{
+	if data.Name, err = resp.GetString(vm_utils.ParamKeyName); err != nil {
 		log.Printf("<api> parse media image name fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	if data.Description, err = resp.GetString(framework.ParamKeyDescription); err != nil{
+	if data.Description, err = resp.GetString(vm_utils.ParamKeyDescription); err != nil {
 		log.Printf("<api> parse media image description fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	if data.Tags, err = resp.GetStringArray(framework.ParamKeyTag); err != nil{
+	if data.Tags, err = resp.GetStringArray(vm_utils.ParamKeyTag); err != nil {
 		log.Printf("<api> parse media image tags fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	if data.Size, err = resp.GetUInt(framework.ParamKeySize); err != nil{
+	if data.Size, err = resp.GetUInt(vm_utils.ParamKeySize); err != nil {
 		log.Printf("<api> parse media image size fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
@@ -2710,8 +2707,8 @@ func (module *APIModule) getMediaImage(w http.ResponseWriter, r *http.Request, p
 	ResponseOK(data, w)
 }
 
-func (module *APIModule) createMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) createMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -2724,18 +2721,18 @@ func (module *APIModule) createMediaImage(w http.ResponseWriter, r *http.Request
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse create media image request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.CreateMediaImageRequest)
-	msg.SetString(framework.ParamKeyName, request.Name)
-	msg.SetString(framework.ParamKeyUser, request.Owner)
-	msg.SetString(framework.ParamKeyGroup, request.Group)
-	msg.SetString(framework.ParamKeyDescription, request.Description)
-	msg.SetStringArray(framework.ParamKeyTag, request.Tags)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.CreateMediaImageRequest)
+	msg.SetString(vm_utils.ParamKeyName, request.Name)
+	msg.SetString(vm_utils.ParamKeyUser, request.Owner)
+	msg.SetString(vm_utils.ParamKeyGroup, request.Group)
+	msg.SetString(vm_utils.ParamKeyDescription, request.Description)
+	msg.SetStringArray(vm_utils.ParamKeyTag, request.Tags)
 
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -2751,7 +2748,7 @@ func (module *APIModule) createMediaImage(w http.ResponseWriter, r *http.Request
 	}
 	var imageID string
 	var err error
-	if imageID, err = resp.GetString(framework.ParamKeyImage);err != nil{
+	if imageID, err = resp.GetString(vm_utils.ParamKeyImage); err != nil {
 		log.Printf("<api> get image from create result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -2760,13 +2757,12 @@ func (module *APIModule) createMediaImage(w http.ResponseWriter, r *http.Request
 	type userResponse struct {
 		ID string `json:"id"`
 	}
-	var data = userResponse{ID:imageID}
+	var data = userResponse{ID: imageID}
 	ResponseOK(data, w)
 }
 
-
-func (module *APIModule) modifyMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) modifyMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -2781,19 +2777,19 @@ func (module *APIModule) modifyMediaImage(w http.ResponseWriter, r *http.Request
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify media image request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.ModifyMediaImageRequest)
-	msg.SetString(framework.ParamKeyImage, imageID)
-	msg.SetString(framework.ParamKeyName, request.Name)
-	msg.SetString(framework.ParamKeyUser, request.Owner)
-	msg.SetString(framework.ParamKeyGroup, request.Group)
-	msg.SetString(framework.ParamKeyDescription, request.Description)
-	msg.SetStringArray(framework.ParamKeyTag, request.Tags)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyMediaImageRequest)
+	msg.SetString(vm_utils.ParamKeyImage, imageID)
+	msg.SetString(vm_utils.ParamKeyName, request.Name)
+	msg.SetString(vm_utils.ParamKeyUser, request.Owner)
+	msg.SetString(vm_utils.ParamKeyGroup, request.Group)
+	msg.SetString(vm_utils.ParamKeyDescription, request.Description)
+	msg.SetStringArray(vm_utils.ParamKeyTag, request.Tags)
 
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -2810,14 +2806,14 @@ func (module *APIModule) modifyMediaImage(w http.ResponseWriter, r *http.Request
 	ResponseOK("", w)
 }
 
-func (module *APIModule) deleteMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) deleteMediaImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var id = params.ByName("id")
-	msg, _ := framework.CreateJsonMessage(framework.DeleteMediaImageRequest)
-	msg.SetString(framework.ParamKeyImage, id)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.DeleteMediaImageRequest)
+	msg.SetString(vm_utils.ParamKeyImage, id)
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send delete media image request fail: %s", err.Error())
@@ -2833,9 +2829,9 @@ func (module *APIModule) deleteMediaImage(w http.ResponseWriter, r *http.Request
 	ResponseOK("", w)
 }
 
-func (module *APIModule) syncMediaImages(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) syncMediaImages(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err error
-	if err = module.verifyRequestSignature(r); err != nil{
+	if err = module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -2846,23 +2842,23 @@ func (module *APIModule) syncMediaImages(w http.ResponseWriter, r *http.Request,
 
 	var request RequestPayload
 	var decoder = json.NewDecoder(r.Body)
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse sync media image request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	if "" == request.Owner{
+	if "" == request.Owner {
 		ResponseFail(ResponseDefaultError, "owner required", w)
 		return
 	}
-	if "" == request.Group{
+	if "" == request.Group {
 		ResponseFail(ResponseDefaultError, "group required", w)
 		return
 	}
-	msg, _ := framework.CreateJsonMessage(framework.SynchronizeMediaImageRequest)
-	msg.SetString(framework.ParamKeyUser, request.Owner)
-	msg.SetString(framework.ParamKeyGroup, request.Group)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.SynchronizeMediaImageRequest)
+	msg.SetString(vm_utils.ParamKeyUser, request.Owner)
+	msg.SetString(vm_utils.ParamKeyGroup, request.Group)
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send sync media images request fail: %s", err.Error())
@@ -2878,8 +2874,8 @@ func (module *APIModule) syncMediaImages(w http.ResponseWriter, r *http.Request,
 	ResponseOK("", w)
 }
 
-func (module *APIModule) queryDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) queryDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -2887,15 +2883,15 @@ func (module *APIModule) queryDiskImage(w http.ResponseWriter, r *http.Request, 
 	var filterGroup = r.URL.Query().Get("group")
 	var filterTags = r.URL.Query()["tags"]
 
-	msg, _ := framework.CreateJsonMessage(framework.QueryDiskImageRequest)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QueryDiskImageRequest)
 
-	msg.SetString(framework.ParamKeyUser, filterOwner)
+	msg.SetString(vm_utils.ParamKeyUser, filterOwner)
 
-	if filterGroup != ""{
-		msg.SetString(framework.ParamKeyGroup, filterGroup)
+	if filterGroup != "" {
+		msg.SetString(vm_utils.ParamKeyGroup, filterGroup)
 	}
-	if 0 != len(filterTags){
-		msg.SetStringArray(framework.ParamKeyTag, filterTags)
+	if 0 != len(filterTags) {
+		msg.SetStringArray(vm_utils.ParamKeyTag, filterTags)
 	}
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -2920,47 +2916,47 @@ func (module *APIModule) queryDiskImage(w http.ResponseWriter, r *http.Request, 
 		ModifyTime  string   `json:"modify_time,omitempty"`
 	}
 
-	var parser = func(msg framework.Message) (images []respImage, err error){
+	var parser = func(msg vm_utils.Message) (images []respImage, err error) {
 		//unmarshal
 		var name, id, description, tags, createTime, modifyTime []string
 		var size, tagCount []uint64
-		if name, err = msg.GetStringArray(framework.ParamKeyName); err != nil{
+		if name, err = msg.GetStringArray(vm_utils.ParamKeyName); err != nil {
 			return
 		}
-		if id, err = msg.GetStringArray(framework.ParamKeyImage); err != nil{
+		if id, err = msg.GetStringArray(vm_utils.ParamKeyImage); err != nil {
 			return
 		}
-		if description, err = msg.GetStringArray(framework.ParamKeyDescription); err != nil{
+		if description, err = msg.GetStringArray(vm_utils.ParamKeyDescription); err != nil {
 			return
 		}
-		if tags, err = msg.GetStringArray(framework.ParamKeyTag); err != nil{
+		if tags, err = msg.GetStringArray(vm_utils.ParamKeyTag); err != nil {
 			return
 		}
-		if createTime, err = msg.GetStringArray(framework.ParamKeyCreate); err != nil{
+		if createTime, err = msg.GetStringArray(vm_utils.ParamKeyCreate); err != nil {
 			return
 		}
-		if modifyTime, err = msg.GetStringArray(framework.ParamKeyModify); err != nil{
+		if modifyTime, err = msg.GetStringArray(vm_utils.ParamKeyModify); err != nil {
 			return
 		}
-		if size, err = msg.GetUIntArray(framework.ParamKeySize); err != nil{
+		if size, err = msg.GetUIntArray(vm_utils.ParamKeySize); err != nil {
 			return
 		}
-		if tagCount, err = msg.GetUIntArray(framework.ParamKeyCount); err != nil{
+		if tagCount, err = msg.GetUIntArray(vm_utils.ParamKeyCount); err != nil {
 			return
 		}
 
 		var totalTags uint64 = 0
-		for _, count := range tagCount{
+		for _, count := range tagCount {
 			totalTags += count
 		}
-		if int(totalTags) != len(tags){
+		if int(totalTags) != len(tags) {
 			err = fmt.Errorf("unexpect tag count %d / %d", len(tags), totalTags)
 			return
 		}
 		var imageCount = len(name)
 		images = make([]respImage, 0)
 		var tagBegin = 0
-		for i := 0 ; i < imageCount;i++{
+		for i := 0; i < imageCount; i++ {
 			var image = respImage{}
 			image.Name = name[i]
 			image.ID = id[i]
@@ -2977,7 +2973,7 @@ func (module *APIModule) queryDiskImage(w http.ResponseWriter, r *http.Request, 
 	}
 
 	payload, err := parser(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse query disk image result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -2985,14 +2981,14 @@ func (module *APIModule) queryDiskImage(w http.ResponseWriter, r *http.Request, 
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) getDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) getDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var id = params.ByName("id")
-	msg, _ := framework.CreateJsonMessage(framework.GetDiskImageRequest)
-	msg.SetString(framework.ParamKeyImage, id)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.GetDiskImageRequest)
+	msg.SetString(vm_utils.ParamKeyImage, id)
 	var respChan = make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send get disk image request fail: %s", err.Error())
@@ -3016,32 +3012,32 @@ func (module *APIModule) getDiskImage(w http.ResponseWriter, r *http.Request, pa
 	}
 	var data userResponse
 	var err error
-	if data.Name, err = resp.GetString(framework.ParamKeyName); err != nil{
+	if data.Name, err = resp.GetString(vm_utils.ParamKeyName); err != nil {
 		log.Printf("<api> parse disk image name fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	if data.Description, err = resp.GetString(framework.ParamKeyDescription); err != nil{
+	if data.Description, err = resp.GetString(vm_utils.ParamKeyDescription); err != nil {
 		log.Printf("<api> parse disk image description fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	if data.Tags, err = resp.GetStringArray(framework.ParamKeyTag); err != nil{
+	if data.Tags, err = resp.GetStringArray(vm_utils.ParamKeyTag); err != nil {
 		log.Printf("<api> parse disk image tags fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	if data.Size, err = resp.GetUInt(framework.ParamKeySize); err != nil{
+	if data.Size, err = resp.GetUInt(vm_utils.ParamKeySize); err != nil {
 		log.Printf("<api> parse disk image size fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	if data.Progress, err = resp.GetUInt(framework.ParamKeyProgress); err != nil{
+	if data.Progress, err = resp.GetUInt(vm_utils.ParamKeyProgress); err != nil {
 		log.Printf("<api> parse disk image progress fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	if data.Created, err = resp.GetBoolean(framework.ParamKeyEnable); err != nil{
+	if data.Created, err = resp.GetBoolean(vm_utils.ParamKeyEnable); err != nil {
 		log.Printf("<api> parse disk image status fail: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
@@ -3050,8 +3046,8 @@ func (module *APIModule) getDiskImage(w http.ResponseWriter, r *http.Request, pa
 	ResponseOK(data, w)
 }
 
-func (module *APIModule) createDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) createDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -3065,19 +3061,19 @@ func (module *APIModule) createDiskImage(w http.ResponseWriter, r *http.Request,
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse create disk image request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.CreateDiskImageRequest)
-	msg.SetString(framework.ParamKeyName, request.Name)
-	msg.SetString(framework.ParamKeyGuest, request.Guest)
-	msg.SetString(framework.ParamKeyUser, request.Owner)
-	msg.SetString(framework.ParamKeyGroup, request.Group)
-	msg.SetString(framework.ParamKeyDescription, request.Description)
-	msg.SetStringArray(framework.ParamKeyTag, request.Tags)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.CreateDiskImageRequest)
+	msg.SetString(vm_utils.ParamKeyName, request.Name)
+	msg.SetString(vm_utils.ParamKeyGuest, request.Guest)
+	msg.SetString(vm_utils.ParamKeyUser, request.Owner)
+	msg.SetString(vm_utils.ParamKeyGroup, request.Group)
+	msg.SetString(vm_utils.ParamKeyDescription, request.Description)
+	msg.SetStringArray(vm_utils.ParamKeyTag, request.Tags)
 
 	var respChan = make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3093,7 +3089,7 @@ func (module *APIModule) createDiskImage(w http.ResponseWriter, r *http.Request,
 	}
 	var imageID string
 	var err error
-	if imageID, err = resp.GetString(framework.ParamKeyImage);err != nil{
+	if imageID, err = resp.GetString(vm_utils.ParamKeyImage); err != nil {
 		log.Printf("<api> get image from create result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3102,16 +3098,15 @@ func (module *APIModule) createDiskImage(w http.ResponseWriter, r *http.Request,
 	type userResponse struct {
 		ID string `json:"id"`
 	}
-	var data = userResponse{ID:imageID}
-	if "" != request.Guest{
+	var data = userResponse{ID: imageID}
+	if "" != request.Guest {
 		w.WriteHeader(http.StatusAccepted)
 	}
 	ResponseOK(data, w)
 }
 
-
-func (module *APIModule) modifyDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) modifyDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -3126,19 +3121,19 @@ func (module *APIModule) modifyDiskImage(w http.ResponseWriter, r *http.Request,
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify media image request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.ModifyDiskImageRequest)
-	msg.SetString(framework.ParamKeyImage, imageID)
-	msg.SetString(framework.ParamKeyName, request.Name)
-	msg.SetString(framework.ParamKeyUser, request.Owner)
-	msg.SetString(framework.ParamKeyGroup, request.Group)
-	msg.SetString(framework.ParamKeyDescription, request.Description)
-	msg.SetStringArray(framework.ParamKeyTag, request.Tags)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyDiskImageRequest)
+	msg.SetString(vm_utils.ParamKeyImage, imageID)
+	msg.SetString(vm_utils.ParamKeyName, request.Name)
+	msg.SetString(vm_utils.ParamKeyUser, request.Owner)
+	msg.SetString(vm_utils.ParamKeyGroup, request.Group)
+	msg.SetString(vm_utils.ParamKeyDescription, request.Description)
+	msg.SetStringArray(vm_utils.ParamKeyTag, request.Tags)
 
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3155,15 +3150,14 @@ func (module *APIModule) modifyDiskImage(w http.ResponseWriter, r *http.Request,
 	ResponseOK("", w)
 }
 
-
-func (module *APIModule) deleteDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) deleteDiskImage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var id = params.ByName("id")
-	msg, _ := framework.CreateJsonMessage(framework.DeleteDiskImageRequest)
-	msg.SetString(framework.ParamKeyImage, id)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.DeleteDiskImageRequest)
+	msg.SetString(vm_utils.ParamKeyImage, id)
 	var respChan = make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send delete disk image request fail: %s", err.Error())
@@ -3179,9 +3173,9 @@ func (module *APIModule) deleteDiskImage(w http.ResponseWriter, r *http.Request,
 	ResponseOK("", w)
 }
 
-func (module *APIModule) syncDiskImages(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) syncDiskImages(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err error
-	if err = module.verifyRequestSignature(r); err != nil{
+	if err = module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -3192,23 +3186,23 @@ func (module *APIModule) syncDiskImages(w http.ResponseWriter, r *http.Request, 
 
 	var request RequestPayload
 	var decoder = json.NewDecoder(r.Body)
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse sync disk image request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	if "" == request.Owner{
+	if "" == request.Owner {
 		ResponseFail(ResponseDefaultError, "owner required", w)
 		return
 	}
-	if "" == request.Group{
+	if "" == request.Group {
 		ResponseFail(ResponseDefaultError, "group required", w)
 		return
 	}
-	msg, _ := framework.CreateJsonMessage(framework.SynchronizeDiskImageRequest)
-	msg.SetString(framework.ParamKeyUser, request.Owner)
-	msg.SetString(framework.ParamKeyGroup, request.Group)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.SynchronizeDiskImageRequest)
+	msg.SetString(vm_utils.ParamKeyUser, request.Owner)
+	msg.SetString(vm_utils.ParamKeyGroup, request.Group)
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send sync disk images request fail: %s", err.Error())
@@ -3225,25 +3219,25 @@ func (module *APIModule) syncDiskImages(w http.ResponseWriter, r *http.Request, 
 }
 
 func (module *APIModule) handleModifyGuestName(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	var id= params.ByName("id")
+	var id = params.ByName("id")
 	type userRequest struct {
 		Name string `json:"name"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify name request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.ModifyGuestNameRequest)
-	msg.SetString(framework.ParamKeyGuest, id)
-	msg.SetString(framework.ParamKeyName, request.Name)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyGuestNameRequest)
+	msg.SetString(vm_utils.ParamKeyGuest, id)
+	msg.SetString(vm_utils.ParamKeyName, request.Name)
 
 	var respChan = make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3261,27 +3255,27 @@ func (module *APIModule) handleModifyGuestName(w http.ResponseWriter, r *http.Re
 }
 
 func (module *APIModule) handleModifyGuestCores(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	var id= params.ByName("id")
+	var id = params.ByName("id")
 	type userRequest struct {
 		Cores     uint `json:"cores"`
 		Immediate bool `json:"immediate,omitempty"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify cores request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.ModifyCoreRequest)
-	msg.SetString(framework.ParamKeyGuest, id)
-	msg.SetUInt(framework.ParamKeyCore, request.Cores)
-	msg.SetBoolean(framework.ParamKeyImmediate, request.Immediate)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyCoreRequest)
+	msg.SetString(vm_utils.ParamKeyGuest, id)
+	msg.SetUInt(vm_utils.ParamKeyCore, request.Cores)
+	msg.SetBoolean(vm_utils.ParamKeyImmediate, request.Immediate)
 
 	var respChan = make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3299,27 +3293,27 @@ func (module *APIModule) handleModifyGuestCores(w http.ResponseWriter, r *http.R
 }
 
 func (module *APIModule) handleModifyGuestMemory(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	var id= params.ByName("id")
+	var id = params.ByName("id")
 	type userRequest struct {
 		Memory    uint `json:"memory"`
 		Immediate bool `json:"immediate,omitempty"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify memory request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.ModifyMemoryRequest)
-	msg.SetString(framework.ParamKeyGuest, id)
-	msg.SetUInt(framework.ParamKeyMemory, request.Memory)
-	msg.SetBoolean(framework.ParamKeyImmediate, request.Immediate)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyMemoryRequest)
+	msg.SetString(vm_utils.ParamKeyGuest, id)
+	msg.SetUInt(vm_utils.ParamKeyMemory, request.Memory)
+	msg.SetBoolean(vm_utils.ParamKeyImmediate, request.Immediate)
 
 	var respChan = make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3337,25 +3331,25 @@ func (module *APIModule) handleModifyGuestMemory(w http.ResponseWriter, r *http.
 }
 
 func (module *APIModule) handleModifyAutoStart(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	var id= params.ByName("id")
+	var id = params.ByName("id")
 	type userRequest struct {
 		Enable bool `json:"enable"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify memory request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.ModifyAutoStartRequest)
-	msg.SetString(framework.ParamKeyGuest, id)
-	msg.SetBoolean(framework.ParamKeyEnable, request.Enable)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyAutoStartRequest)
+	msg.SetString(vm_utils.ParamKeyGuest, id)
+	msg.SetBoolean(vm_utils.ParamKeyEnable, request.Enable)
 
 	var respChan = make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3373,32 +3367,32 @@ func (module *APIModule) handleModifyAutoStart(w http.ResponseWriter, r *http.Re
 }
 
 func (module *APIModule) handleModifyGuestPriority(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	var id= params.ByName("id")
+	var id = params.ByName("id")
 	type userRequest struct {
 		Priority string `json:"priority"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify priority request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.ModifyPriorityRequest)
-	msg.SetString(framework.ParamKeyGuest, id)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyPriorityRequest)
+	msg.SetString(vm_utils.ParamKeyGuest, id)
 
 	switch request.Priority {
 	case priority_label_high:
-		msg.SetUInt(framework.ParamKeyPriority, PriorityHigh)
+		msg.SetUInt(vm_utils.ParamKeyPriority, PriorityHigh)
 	case priority_label_medium:
-		msg.SetUInt(framework.ParamKeyPriority, PriorityMedium)
+		msg.SetUInt(vm_utils.ParamKeyPriority, PriorityMedium)
 	case priority_label_low:
-		msg.SetUInt(framework.ParamKeyPriority, PriorityLow)
+		msg.SetUInt(vm_utils.ParamKeyPriority, PriorityLow)
 	default:
 		var err = fmt.Errorf("invalid CPU priority %s", request.Priority)
 		log.Printf("<api> modify with invalid CPU prioirty %s", request.Priority)
@@ -3422,11 +3416,11 @@ func (module *APIModule) handleModifyGuestPriority(w http.ResponseWriter, r *htt
 }
 
 func (module *APIModule) handleModifyDiskThreshold(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	var id= params.ByName("id")
+	var id = params.ByName("id")
 	type userRequest struct {
 		ReadSpeed  uint64 `json:"read_speed,omitempty"`
 		ReadIOPS   uint64 `json:"read_iops,omitempty"`
@@ -3435,15 +3429,15 @@ func (module *APIModule) handleModifyDiskThreshold(w http.ResponseWriter, r *htt
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify disk threshold request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.ModifyDiskThresholdRequest)
-	msg.SetString(framework.ParamKeyGuest, id)
-	msg.SetUIntArray(framework.ParamKeyLimit, []uint64{request.ReadSpeed, request.WriteSpeed, request.ReadIOPS, request.WriteIOPS})
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyDiskThresholdRequest)
+	msg.SetString(vm_utils.ParamKeyGuest, id)
+	msg.SetUIntArray(vm_utils.ParamKeyLimit, []uint64{request.ReadSpeed, request.WriteSpeed, request.ReadIOPS, request.WriteIOPS})
 
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3460,28 +3454,27 @@ func (module *APIModule) handleModifyDiskThreshold(w http.ResponseWriter, r *htt
 	ResponseOK("", w)
 }
 
-
 func (module *APIModule) handleModifyNetworkThreshold(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	var id= params.ByName("id")
+	var id = params.ByName("id")
 	type userRequest struct {
 		ReceiveSpeed uint64 `json:"receive_speed,omitempty"`
 		SendSpeed    uint64 `json:"send_speed,omitempty"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify network threshold request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.ModifyNetworkThresholdRequest)
-	msg.SetString(framework.ParamKeyGuest, id)
-	msg.SetUIntArray(framework.ParamKeyLimit, []uint64{request.ReceiveSpeed, request.SendSpeed})
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyNetworkThresholdRequest)
+	msg.SetString(vm_utils.ParamKeyGuest, id)
+	msg.SetUIntArray(vm_utils.ParamKeyLimit, []uint64{request.ReceiveSpeed, request.SendSpeed})
 
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3499,7 +3492,7 @@ func (module *APIModule) handleModifyNetworkThreshold(w http.ResponseWriter, r *
 }
 
 func (module *APIModule) handleResetGuestSystem(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -3509,15 +3502,15 @@ func (module *APIModule) handleResetGuestSystem(w http.ResponseWriter, r *http.R
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse reset system request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.ResetSystemRequest)
-	msg.SetString(framework.ParamKeyGuest, guestID)
-	msg.SetString(framework.ParamKeyImage, request.FromImage)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ResetSystemRequest)
+	msg.SetString(vm_utils.ParamKeyGuest, guestID)
+	msg.SetString(vm_utils.ParamKeyImage, request.FromImage)
 
 	var respChan = make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3534,29 +3527,28 @@ func (module *APIModule) handleResetGuestSystem(w http.ResponseWriter, r *http.R
 	ResponseOK("", w)
 }
 
-
 func (module *APIModule) handleModifyGuestPassword(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	var id= params.ByName("id")
+	var id = params.ByName("id")
 	type userRequest struct {
 		Password string `json:"password,omitempty"`
 		User     string `json:"user,omitempty"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify password request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.ModifyAuthRequest)
-	msg.SetString(framework.ParamKeyGuest, id)
-	msg.SetString(framework.ParamKeySecret, request.Password)
-	msg.SetString(framework.ParamKeyUser, request.User)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyAuthRequest)
+	msg.SetString(vm_utils.ParamKeyGuest, id)
+	msg.SetString(vm_utils.ParamKeySecret, request.Password)
+	msg.SetString(vm_utils.ParamKeyUser, request.User)
 
 	var respChan = make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3575,19 +3567,19 @@ func (module *APIModule) handleModifyGuestPassword(w http.ResponseWriter, r *htt
 		User     string `json:"user,omitempty"`
 	}
 	var data RespData
-	data.Password, _ = resp.GetString(framework.ParamKeySecret)
-	data.User, _ = resp.GetString(framework.ParamKeyUser)
+	data.Password, _ = resp.GetString(vm_utils.ParamKeySecret)
+	data.User, _ = resp.GetString(vm_utils.ParamKeyUser)
 	ResponseOK(data, w)
 }
 
 func (module *APIModule) handleGetGuestPassword(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	var id= params.ByName("id")
-	msg, _ := framework.CreateJsonMessage(framework.GetAuthRequest)
-	msg.SetString(framework.ParamKeyGuest, id)
+	var id = params.ByName("id")
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.GetAuthRequest)
+	msg.SetString(vm_utils.ParamKeyGuest, id)
 
 	var respChan = make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3607,12 +3599,12 @@ func (module *APIModule) handleGetGuestPassword(w http.ResponseWriter, r *http.R
 	}
 	var data RespData
 	var err error
-	if data.Password, err = resp.GetString(framework.ParamKeySecret); err != nil{
+	if data.Password, err = resp.GetString(vm_utils.ParamKeySecret); err != nil {
 		log.Printf("<api> get password fail when parse password: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	if data.User, err = resp.GetString(framework.ParamKeyUser); err != nil{
+	if data.User, err = resp.GetString(vm_utils.ParamKeyUser); err != nil {
 		log.Printf("<api> get password fail when parse user: %s", errMsg)
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
@@ -3622,14 +3614,14 @@ func (module *APIModule) handleGetGuestPassword(w http.ResponseWriter, r *http.R
 }
 
 func (module *APIModule) handleResizeDisk(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var id = params.ByName("id")
 	var index = params.ByName("index")
 	diskOffset, err := strconv.Atoi(index)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> try resize disk with invalid index %s", index)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3640,17 +3632,17 @@ func (module *APIModule) handleResizeDisk(w http.ResponseWriter, r *http.Request
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse resize disk request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.ResizeDiskRequest)
-	msg.SetString(framework.ParamKeyGuest, id)
-	msg.SetUInt(framework.ParamKeyDisk, uint(diskOffset))
-	msg.SetUInt(framework.ParamKeySize, request.Size)
-	msg.SetBoolean(framework.ParamKeyImmediate, request.Immediate)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ResizeDiskRequest)
+	msg.SetString(vm_utils.ParamKeyGuest, id)
+	msg.SetUInt(vm_utils.ParamKeyDisk, uint(diskOffset))
+	msg.SetUInt(vm_utils.ParamKeySize, request.Size)
+	msg.SetBoolean(vm_utils.ParamKeyImmediate, request.Immediate)
 
 	var respChan = make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3668,14 +3660,14 @@ func (module *APIModule) handleResizeDisk(w http.ResponseWriter, r *http.Request
 }
 
 func (module *APIModule) handleShrinkDisk(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var id = params.ByName("id")
 	var index = params.ByName("index")
 	diskOffset, err := strconv.Atoi(index)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> try shrink disk with invalid index %s", index)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -3685,16 +3677,16 @@ func (module *APIModule) handleShrinkDisk(w http.ResponseWriter, r *http.Request
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse shrink disk request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.ShrinkDiskRequest)
-	msg.SetString(framework.ParamKeyGuest, id)
-	msg.SetUInt(framework.ParamKeyDisk, uint(diskOffset))
-	msg.SetBoolean(framework.ParamKeyImmediate, request.Immediate)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ShrinkDiskRequest)
+	msg.SetString(vm_utils.ParamKeyGuest, id)
+	msg.SetUInt(vm_utils.ParamKeyDisk, uint(diskOffset))
+	msg.SetBoolean(vm_utils.ParamKeyImmediate, request.Immediate)
 
 	var respChan = make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3712,7 +3704,7 @@ func (module *APIModule) handleShrinkDisk(w http.ResponseWriter, r *http.Request
 }
 
 func (module *APIModule) handleInsertMedia(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -3725,16 +3717,16 @@ func (module *APIModule) handleInsertMedia(w http.ResponseWriter, r *http.Reques
 
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse insert media request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.InsertMediaRequest)
-	msg.SetString(framework.ParamKeyInstance, id)
-	msg.SetString(framework.ParamKeyMedia, request.Source)
-	msg.SetUInt(framework.ParamKeyType, request.Type)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.InsertMediaRequest)
+	msg.SetString(vm_utils.ParamKeyInstance, id)
+	msg.SetString(vm_utils.ParamKeyMedia, request.Source)
+	msg.SetUInt(vm_utils.ParamKeyType, request.Type)
 
 	var respChan = make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3752,14 +3744,14 @@ func (module *APIModule) handleInsertMedia(w http.ResponseWriter, r *http.Reques
 }
 
 func (module *APIModule) handleEjectMedia(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var id = params.ByName("id")
 
-	msg, _ := framework.CreateJsonMessage(framework.EjectMediaRequest)
-	msg.SetString(framework.ParamKeyInstance, id)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.EjectMediaRequest)
+	msg.SetString(vm_utils.ParamKeyInstance, id)
 
 	var respChan = make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3776,14 +3768,14 @@ func (module *APIModule) handleEjectMedia(w http.ResponseWriter, r *http.Request
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleQueryInstanceSnapshots(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleQueryInstanceSnapshots(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var instanceID = params.ByName("id")
-	msg, _ := framework.CreateJsonMessage(framework.QuerySnapshotRequest)
-	msg.SetString(framework.ParamKeyInstance, instanceID)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QuerySnapshotRequest)
+	msg.SetString(vm_utils.ParamKeyInstance, instanceID)
 
 	var respChan = make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3798,42 +3790,42 @@ func (module *APIModule) handleQueryInstanceSnapshots(w http.ResponseWriter, r *
 		return
 	}
 	type Snapshot struct {
-		IsRoot      bool   `json:"is_root,omitempty"`
-		IsCurrent   bool   `json:"is_current,omitempty"`
-		Backing     string `json:"backing,omitempty"`
+		IsRoot    bool   `json:"is_root,omitempty"`
+		IsCurrent bool   `json:"is_current,omitempty"`
+		Backing   string `json:"backing,omitempty"`
 	}
 
 	var data = map[string]Snapshot{}
 	var rootFlags, currentFlags []uint64
 	var backings, names []string
-	var parser = func () (err error) {
-		if names, err = resp.GetStringArray(framework.ParamKeyName); err != nil{
+	var parser = func() (err error) {
+		if names, err = resp.GetStringArray(vm_utils.ParamKeyName); err != nil {
 			return
 		}
-		if backings, err = resp.GetStringArray(framework.ParamKeyPrevious); err != nil{
+		if backings, err = resp.GetStringArray(vm_utils.ParamKeyPrevious); err != nil {
 			return
 		}
-		if rootFlags, err = resp.GetUIntArray(framework.ParamKeySource); err != nil{
+		if rootFlags, err = resp.GetUIntArray(vm_utils.ParamKeySource); err != nil {
 			return
 		}
-		if currentFlags, err = resp.GetUIntArray(framework.ParamKeyCurrent); err != nil{
+		if currentFlags, err = resp.GetUIntArray(vm_utils.ParamKeyCurrent); err != nil {
 			return
 		}
 		return nil
 	}
-	if err := parser(); err != nil{
+	if err := parser(); err != nil {
 		log.Printf("<api> parse snapshots fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var count = len(names)
-	for i := 0; i < count; i++{
+	for i := 0; i < count; i++ {
 		var snapshot = Snapshot{}
 		snapshot.Backing = backings[i]
-		if 1 == rootFlags[i]{
+		if 1 == rootFlags[i] {
 			snapshot.IsRoot = true
 		}
-		if 1 == currentFlags[i]{
+		if 1 == currentFlags[i] {
 			snapshot.IsCurrent = true
 		}
 		data[names[i]] = snapshot
@@ -3842,30 +3834,30 @@ func (module *APIModule) handleQueryInstanceSnapshots(w http.ResponseWriter, r *
 	ResponseOK(data, w)
 }
 
-func (module *APIModule) handleCreateInstanceSnapshot(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleCreateInstanceSnapshot(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var instanceID = params.ByName("id")
 
 	type UserRequest struct {
-		Name string `json:"name"`
+		Name        string `json:"name"`
 		Description string `json:"description,omitempty"`
 	}
 	var err error
 	var decoder = json.NewDecoder(r.Body)
 	var requestData UserRequest
-	if err = decoder.Decode(&requestData); err != nil{
+	if err = decoder.Decode(&requestData); err != nil {
 		log.Printf("<api> decode create snapshot request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.CreateSnapshotRequest)
-	msg.SetString(framework.ParamKeyInstance, instanceID)
-	msg.SetString(framework.ParamKeyName, requestData.Name)
-	msg.SetString(framework.ParamKeyDescription, requestData.Description)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.CreateSnapshotRequest)
+	msg.SetString(vm_utils.ParamKeyInstance, instanceID)
+	msg.SetString(vm_utils.ParamKeyName, requestData.Name)
+	msg.SetString(vm_utils.ParamKeyDescription, requestData.Description)
 
 	var respChan = make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3882,17 +3874,17 @@ func (module *APIModule) handleCreateInstanceSnapshot(w http.ResponseWriter, r *
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleDeleteInstanceSnapshot(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleDeleteInstanceSnapshot(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var instanceID = params.ByName("id")
 	var snapshotName = params.ByName("name")
 
-	msg, _ := framework.CreateJsonMessage(framework.DeleteSnapshotRequest)
-	msg.SetString(framework.ParamKeyInstance, instanceID)
-	msg.SetString(framework.ParamKeyName, snapshotName)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.DeleteSnapshotRequest)
+	msg.SetString(vm_utils.ParamKeyInstance, instanceID)
+	msg.SetString(vm_utils.ParamKeyName, snapshotName)
 
 	var respChan = make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3909,8 +3901,8 @@ func (module *APIModule) handleDeleteInstanceSnapshot(w http.ResponseWriter, r *
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleRestoreInstanceSnapshot(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleRestoreInstanceSnapshot(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -3920,16 +3912,16 @@ func (module *APIModule) handleRestoreInstanceSnapshot(w http.ResponseWriter, r 
 	}
 	var request UserRequest
 	var decoder = json.NewDecoder(r.Body)
-	if err := decoder.Decode(&request); err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse restore snapshot request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
 	var snapshotName = request.Target
-	msg, _ := framework.CreateJsonMessage(framework.RestoreSnapshotRequest)
-	msg.SetString(framework.ParamKeyInstance, instanceID)
-	msg.SetString(framework.ParamKeyName, snapshotName)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.RestoreSnapshotRequest)
+	msg.SetString(vm_utils.ParamKeyInstance, instanceID)
+	msg.SetString(vm_utils.ParamKeyName, snapshotName)
 
 	var respChan = make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3946,17 +3938,17 @@ func (module *APIModule) handleRestoreInstanceSnapshot(w http.ResponseWriter, r 
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleGetInstanceSnapshot(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleGetInstanceSnapshot(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var instanceID = params.ByName("id")
 	var snapshotName = params.ByName("name")
 
-	msg, _ := framework.CreateJsonMessage(framework.GetSnapshotRequest)
-	msg.SetString(framework.ParamKeyInstance, instanceID)
-	msg.SetString(framework.ParamKeyName, snapshotName)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.GetSnapshotRequest)
+	msg.SetString(vm_utils.ParamKeyInstance, instanceID)
+	msg.SetString(vm_utils.ParamKeyName, snapshotName)
 
 	var respChan = make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -3971,32 +3963,32 @@ func (module *APIModule) handleGetInstanceSnapshot(w http.ResponseWriter, r *htt
 		return
 	}
 	type ResponseData struct {
-		Running bool `json:"running"`
+		Running     bool   `json:"running"`
 		Description string `json:"description,omitempty"`
-		CreateTime string `json:"create_time"`
+		CreateTime  string `json:"create_time"`
 	}
 	var data ResponseData
 	var err error
-	if data.Running, err = resp.GetBoolean(framework.ParamKeyStatus); err != nil{
+	if data.Running, err = resp.GetBoolean(vm_utils.ParamKeyStatus); err != nil {
 		log.Printf("<api> parse snapshot status fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if data.CreateTime, err = resp.GetString(framework.ParamKeyCreate); err != nil{
+	if data.CreateTime, err = resp.GetString(vm_utils.ParamKeyCreate); err != nil {
 		log.Printf("<api> parse snapshot create time fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	data.Description, _ = resp.GetString(framework.ParamKeyDescription)
+	data.Description, _ = resp.GetString(vm_utils.ParamKeyDescription)
 	ResponseOK(data, w)
 }
 
-func (module *APIModule) handleQueryMigrations(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleQueryMigrations(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg, _ := framework.CreateJsonMessage(framework.QueryMigrationRequest)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QueryMigrationRequest)
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send query migration request fail: %s", err.Error())
@@ -4020,51 +4012,51 @@ func (module *APIModule) handleQueryMigrations(w http.ResponseWriter, r *http.Re
 	var err error
 
 	var respPayload = make([]Migration, 0)
-	if id, err = resp.GetStringArray(framework.ParamKeyMigration); err != nil{
+	if id, err = resp.GetStringArray(vm_utils.ParamKeyMigration); err != nil {
 		log.Printf("<api> parse id fail when query migration: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if finished, err = resp.GetUIntArray(framework.ParamKeyStatus); err != nil{
+	if finished, err = resp.GetUIntArray(vm_utils.ParamKeyStatus); err != nil {
 		log.Printf("<api> parse status fail when query migration: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if progress, err = resp.GetUIntArray(framework.ParamKeyProgress); err != nil {
+	if progress, err = resp.GetUIntArray(vm_utils.ParamKeyProgress); err != nil {
 		log.Printf("<api> parse progress fail when query migration: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if errMessage, err = resp.GetStringArray(framework.ParamKeyError); err != nil{
+	if errMessage, err = resp.GetStringArray(vm_utils.ParamKeyError); err != nil {
 		log.Printf("<api> parse message fail when query migration: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var count = len(id)
-	if len(finished) != count{
+	if len(finished) != count {
 		var err = fmt.Errorf("unexpect status array size %d", len(finished))
 		log.Printf("<api> verify status fail when query migration: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if len(progress) != count{
+	if len(progress) != count {
 		var err = fmt.Errorf("unexpect progress array size %d", len(finished))
 		log.Printf("<api> verify progress fail when query migration: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if len(errMessage) != count{
+	if len(errMessage) != count {
 		var err = fmt.Errorf("unexpect message array size %d", len(finished))
 		log.Printf("<api> verify message fail when query migration: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	for i := 0; i < count;i++{
+	for i := 0; i < count; i++ {
 		var m = Migration{ID: id[i]}
-		if 1 == finished[i]{
+		if 1 == finished[i] {
 			m.Finished = true
 		}
-		if 0 != progress[i]{
+		if 0 != progress[i] {
 			m.Progress = uint(progress[i])
 		}
 		m.Error = errMessage[i]
@@ -4073,14 +4065,14 @@ func (module *APIModule) handleQueryMigrations(w http.ResponseWriter, r *http.Re
 	ResponseOK(respPayload, w)
 }
 
-func (module *APIModule) handleGetMigration(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleGetMigration(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var migrationID = params.ByName("id")
-	msg, _ := framework.CreateJsonMessage(framework.GetMigrationRequest)
-	msg.SetString(framework.ParamKeyMigration, migrationID)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.GetMigrationRequest)
+	msg.SetString(vm_utils.ParamKeyMigration, migrationID)
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send get migration request fail: %s", err.Error())
@@ -4099,14 +4091,14 @@ func (module *APIModule) handleGetMigration(w http.ResponseWriter, r *http.Reque
 		Error    string `json:"error,omitempty"`
 	}
 	var respPayload = UserResponse{}
-	respPayload.Finished, _ = resp.GetBoolean(framework.ParamKeyStatus)
-	respPayload.Progress, _ = resp.GetUInt(framework.ParamKeyProgress)
-	respPayload.Error, _ = resp.GetString(framework.ParamKeyError)
+	respPayload.Finished, _ = resp.GetBoolean(vm_utils.ParamKeyStatus)
+	respPayload.Progress, _ = resp.GetUInt(vm_utils.ParamKeyProgress)
+	respPayload.Error, _ = resp.GetString(vm_utils.ParamKeyError)
 	ResponseOK(respPayload, w)
 }
 
-func (module *APIModule) handleCreateMigration(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleCreateMigration(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4120,22 +4112,22 @@ func (module *APIModule) handleCreateMigration(w http.ResponseWriter, r *http.Re
 	var err error
 	var decoder = json.NewDecoder(r.Body)
 	var requestData UserRequest
-	if err = decoder.Decode(&requestData); err != nil{
+	if err = decoder.Decode(&requestData); err != nil {
 		log.Printf("<api> decode create migration request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if "" != requestData.TargetPool{
+	if "" != requestData.TargetPool {
 		err = errors.New("migration between pools not support")
 		log.Printf("<api> verify migration request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.CreateMigrationRequest)
-	msg.SetStringArray(framework.ParamKeyPool, []string{requestData.SourcePool})
-	msg.SetStringArray(framework.ParamKeyCell, []string{requestData.SourceCell, requestData.TargetCell})
-	msg.SetStringArray(framework.ParamKeyInstance, requestData.Instances)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.CreateMigrationRequest)
+	msg.SetStringArray(vm_utils.ParamKeyPool, []string{requestData.SourcePool})
+	msg.SetStringArray(vm_utils.ParamKeyCell, []string{requestData.SourceCell, requestData.TargetCell})
+	msg.SetStringArray(vm_utils.ParamKeyInstance, requestData.Instances)
 
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -4152,17 +4144,17 @@ func (module *APIModule) handleCreateMigration(w http.ResponseWriter, r *http.Re
 	type UserResponse struct {
 		ID string `json:"id"`
 	}
-	migrationID, _ := resp.GetString(framework.ParamKeyMigration)
+	migrationID, _ := resp.GetString(vm_utils.ParamKeyMigration)
 	var respPayload = UserResponse{migrationID}
 	ResponseOK(respPayload, w)
 }
 
-func (module *APIModule) handleQueryAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleQueryAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg, _ := framework.CreateJsonMessage(framework.QueryAddressPoolRequest)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QueryAddressPoolRequest)
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send query address pool request fail: %s", err.Error())
@@ -4186,55 +4178,55 @@ func (module *APIModule) handleQueryAddressPool(w http.ResponseWriter, r *http.R
 		Allocated uint64   `json:"allocated"`
 	}
 
-	var parser = func(msg framework.Message) (payload []Pool, err error) {
+	var parser = func(msg vm_utils.Message) (payload []Pool, err error) {
 		payload = make([]Pool, 0)
 		var nameArray, gatewayArray, dnsArray, providerArray []string
 		var addressArray, allocateArray, dnsCountArray []uint64
-		if nameArray, err = msg.GetStringArray(framework.ParamKeyName); err != nil{
+		if nameArray, err = msg.GetStringArray(vm_utils.ParamKeyName); err != nil {
 			return
 		}
-		if gatewayArray, err = msg.GetStringArray(framework.ParamKeyGateway); err != nil{
+		if gatewayArray, err = msg.GetStringArray(vm_utils.ParamKeyGateway); err != nil {
 			return
 		}
-		if dnsArray, err = msg.GetStringArray(framework.ParamKeyServer); err != nil{
+		if dnsArray, err = msg.GetStringArray(vm_utils.ParamKeyServer); err != nil {
 			return
 		}
-		if providerArray, err = msg.GetStringArray(framework.ParamKeyMode); err != nil{
+		if providerArray, err = msg.GetStringArray(vm_utils.ParamKeyMode); err != nil {
 			err = fmt.Errorf("get provider fail: %s", err.Error())
 			return
 		}
-		if addressArray, err = msg.GetUIntArray(framework.ParamKeyAddress); err != nil{
+		if addressArray, err = msg.GetUIntArray(vm_utils.ParamKeyAddress); err != nil {
 			return
 		}
-		if allocateArray, err = msg.GetUIntArray(framework.ParamKeyAllocate); err != nil{
+		if allocateArray, err = msg.GetUIntArray(vm_utils.ParamKeyAllocate); err != nil {
 			return
 		}
-		if dnsCountArray, err = msg.GetUIntArray(framework.ParamKeyCount); err != nil{
+		if dnsCountArray, err = msg.GetUIntArray(vm_utils.ParamKeyCount); err != nil {
 			return
 		}
 		var count = len(nameArray)
-		if count != len(gatewayArray){
+		if count != len(gatewayArray) {
 			err = fmt.Errorf("unmatched gateway array size %d", len(gatewayArray))
 			return
 		}
-		if count != len(addressArray){
+		if count != len(addressArray) {
 			err = fmt.Errorf("unmatched address array size %d", len(addressArray))
 			return
 		}
-		if count != len(allocateArray){
+		if count != len(allocateArray) {
 			err = fmt.Errorf("unmatched allocate array size %d", len(allocateArray))
 			return
 		}
 		var start = 0
-		for i := 0; i < count;i++{
+		for i := 0; i < count; i++ {
 			var dnsCount = int(dnsCountArray[i])
 			var end = start + dnsCount
-			var dns = dnsArray[start : end]
+			var dns = dnsArray[start:end]
 			var pool = Pool{
-				Name: nameArray[i],
-				Gateway: gatewayArray[i],
-				DNS: dns,
-				Provider: providerArray[i],
+				Name:      nameArray[i],
+				Gateway:   gatewayArray[i],
+				DNS:       dns,
+				Provider:  providerArray[i],
 				Addresses: addressArray[i],
 				Allocated: allocateArray[i],
 			}
@@ -4244,7 +4236,7 @@ func (module *APIModule) handleQueryAddressPool(w http.ResponseWriter, r *http.R
 		return
 	}
 	payload, err := parser(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse query address pool result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -4252,15 +4244,15 @@ func (module *APIModule) handleQueryAddressPool(w http.ResponseWriter, r *http.R
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) handleGetAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleGetAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var poolName = params.ByName("pool")
 
-	msg, _ := framework.CreateJsonMessage(framework.GetAddressPoolRequest)
-	msg.SetString(framework.ParamKeyAddress, poolName)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.GetAddressPoolRequest)
+	msg.SetString(vm_utils.ParamKeyAddress, poolName)
 
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -4275,37 +4267,37 @@ func (module *APIModule) handleGetAddressPool(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var parser = func(msg framework.Message) (payload AddressPoolStatus, err error) {
+	var parser = func(msg vm_utils.Message) (payload AddressPoolStatus, err error) {
 		payload.Allocated = make([]AllocatedAddress, 0)
 		payload.Ranges = make([]AddressRangeConfig, 0)
 		var addressArray, instanceArray, startArray, endArray, maskArray []string
 		var capacityArray []uint64
-		if startArray, err = msg.GetStringArray(framework.ParamKeyStart); err != nil{
+		if startArray, err = msg.GetStringArray(vm_utils.ParamKeyStart); err != nil {
 			return
 		}
-		if endArray, err = msg.GetStringArray(framework.ParamKeyEnd); err != nil{
+		if endArray, err = msg.GetStringArray(vm_utils.ParamKeyEnd); err != nil {
 			return
 		}
-		if maskArray, err = msg.GetStringArray(framework.ParamKeyMask); err != nil{
+		if maskArray, err = msg.GetStringArray(vm_utils.ParamKeyMask); err != nil {
 			return
 		}
-		if capacityArray, err = msg.GetUIntArray(framework.ParamKeyCount); err != nil{
+		if capacityArray, err = msg.GetUIntArray(vm_utils.ParamKeyCount); err != nil {
 			return
 		}
-		if payload.Gateway, err = msg.GetString(framework.ParamKeyGateway); err != nil{
+		if payload.Gateway, err = msg.GetString(vm_utils.ParamKeyGateway); err != nil {
 			return
 		}
-		if payload.DNS, err = msg.GetStringArray(framework.ParamKeyServer); err != nil{
+		if payload.DNS, err = msg.GetStringArray(vm_utils.ParamKeyServer); err != nil {
 			return
 		}
-		if payload.Provider, err = msg.GetString(framework.ParamKeyMode); err != nil{
+		if payload.Provider, err = msg.GetString(vm_utils.ParamKeyMode); err != nil {
 			err = fmt.Errorf("get provider fail: %s", err.Error())
 			return
 		}
-		if addressArray, err = msg.GetStringArray(framework.ParamKeyAddress); err != nil{
+		if addressArray, err = msg.GetStringArray(vm_utils.ParamKeyAddress); err != nil {
 			return
 		}
-		if instanceArray, err = msg.GetStringArray(framework.ParamKeyInstance); err != nil{
+		if instanceArray, err = msg.GetStringArray(vm_utils.ParamKeyInstance); err != nil {
 			return
 		}
 		var rangeCount = len(startArray)
@@ -4319,23 +4311,23 @@ func (module *APIModule) handleGetAddressPool(w http.ResponseWriter, r *http.Req
 		}
 
 		var allocatedCount = len(addressArray)
-		if allocatedCount != len(instanceArray){
+		if allocatedCount != len(instanceArray) {
 			err = fmt.Errorf("unmatched instance array size %d", len(instanceArray))
 			return
 		}
 
-		for i := 0; i < rangeCount; i++{
-			payload.Ranges = append(payload.Ranges, AddressRangeConfig{Start:startArray[i], End: endArray[i], Netmask: maskArray[i], Capacity: uint32(capacityArray[i])})
+		for i := 0; i < rangeCount; i++ {
+			payload.Ranges = append(payload.Ranges, AddressRangeConfig{Start: startArray[i], End: endArray[i], Netmask: maskArray[i], Capacity: uint32(capacityArray[i])})
 		}
 
-		for i := 0; i < allocatedCount; i++{
+		for i := 0; i < allocatedCount; i++ {
 			payload.Allocated = append(payload.Allocated, AllocatedAddress{addressArray[i], instanceArray[i]})
 		}
 
 		return payload, nil
 	}
 	payload, err := parser(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse get address pool result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -4344,8 +4336,8 @@ func (module *APIModule) handleGetAddressPool(w http.ResponseWriter, r *http.Req
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) handleCreateAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleCreateAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4353,14 +4345,14 @@ func (module *APIModule) handleCreateAddressPool(w http.ResponseWriter, r *http.
 	var err error
 	var decoder = json.NewDecoder(r.Body)
 	var request AddressPoolConfig
-	if err = decoder.Decode(&request); err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse create address pool request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	request.Name = poolName
-	msg, _ := framework.CreateJsonMessage(framework.CreateAddressPoolRequest)
-	if err = request.build(msg); err != nil{
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.CreateAddressPoolRequest)
+	if err = request.build(msg); err != nil {
 		log.Printf("<api> build create address pool request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -4380,8 +4372,8 @@ func (module *APIModule) handleCreateAddressPool(w http.ResponseWriter, r *http.
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleModifyAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleModifyAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4389,14 +4381,14 @@ func (module *APIModule) handleModifyAddressPool(w http.ResponseWriter, r *http.
 	var err error
 	var decoder = json.NewDecoder(r.Body)
 	var request AddressPoolConfig
-	if err = decoder.Decode(&request); err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify address pool request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	request.Name = poolName
-	msg, _ := framework.CreateJsonMessage(framework.ModifyAddressPoolRequest)
-	if err = request.build(msg); err != nil{
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyAddressPoolRequest)
+	if err = request.build(msg); err != nil {
 		log.Printf("<api> build modify address pool request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -4416,14 +4408,14 @@ func (module *APIModule) handleModifyAddressPool(w http.ResponseWriter, r *http.
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleDeleteAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleDeleteAddressPool(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var poolName = params.ByName("pool")
-	msg, _ := framework.CreateJsonMessage(framework.DeleteAddressPoolRequest)
-	msg.SetString(framework.ParamKeyAddress, poolName)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.DeleteAddressPoolRequest)
+	msg.SetString(vm_utils.ParamKeyAddress, poolName)
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send delete address pool request fail: %s", err.Error())
@@ -4439,16 +4431,16 @@ func (module *APIModule) handleDeleteAddressPool(w http.ResponseWriter, r *http.
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleQueryAddressRange(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleQueryAddressRange(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var poolName = params.ByName("pool")
 	var rangeType = params.ByName("type")
-	msg, _ := framework.CreateJsonMessage(framework.QueryAddressRangeRequest)
-	msg.SetString(framework.ParamKeyAddress, poolName)
-	msg.SetString(framework.ParamKeyType, rangeType)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QueryAddressRangeRequest)
+	msg.SetString(vm_utils.ParamKeyAddress, poolName)
+	msg.SetString(vm_utils.ParamKeyType, rangeType)
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send query address range request fail: %s", err.Error())
@@ -4467,34 +4459,34 @@ func (module *APIModule) handleQueryAddressRange(w http.ResponseWriter, r *http.
 		Netmask string `json:"netmask"`
 	}
 
-	var parser = func(msg framework.Message) (payload []Range, err error) {
+	var parser = func(msg vm_utils.Message) (payload []Range, err error) {
 		payload = make([]Range, 0)
 		var startArray, endArray, maskArray []string
-		if startArray, err = msg.GetStringArray(framework.ParamKeyStart); err != nil{
+		if startArray, err = msg.GetStringArray(vm_utils.ParamKeyStart); err != nil {
 			return
 		}
-		if endArray, err = msg.GetStringArray(framework.ParamKeyEnd); err != nil{
+		if endArray, err = msg.GetStringArray(vm_utils.ParamKeyEnd); err != nil {
 			return
 		}
-		if maskArray, err = msg.GetStringArray(framework.ParamKeyMask); err != nil{
+		if maskArray, err = msg.GetStringArray(vm_utils.ParamKeyMask); err != nil {
 			return
 		}
 		var count = len(startArray)
-		if count != len(endArray){
+		if count != len(endArray) {
 			err = fmt.Errorf("unmatched end array size %d", len(endArray))
 			return
 		}
-		if count != len(maskArray){
+		if count != len(maskArray) {
 			err = fmt.Errorf("unmatched netmask array size %d", len(maskArray))
 			return
 		}
-		for i := 0; i < count;i++{
+		for i := 0; i < count; i++ {
 			payload = append(payload, Range{startArray[i], endArray[i], maskArray[i]})
 		}
 		return
 	}
 	payload, err := parser(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse query address range result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -4502,8 +4494,8 @@ func (module *APIModule) handleQueryAddressRange(w http.ResponseWriter, r *http.
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) handleGetAddressRange(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleGetAddressRange(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4511,10 +4503,10 @@ func (module *APIModule) handleGetAddressRange(w http.ResponseWriter, r *http.Re
 	var rangeType = params.ByName("type")
 	var startAddress = params.ByName("start")
 
-	msg, _ := framework.CreateJsonMessage(framework.GetAddressRangeRequest)
-	msg.SetString(framework.ParamKeyAddress, poolName)
-	msg.SetString(framework.ParamKeyType, rangeType)
-	msg.SetString(framework.ParamKeyStart, startAddress)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.GetAddressRangeRequest)
+	msg.SetString(vm_utils.ParamKeyAddress, poolName)
+	msg.SetString(vm_utils.ParamKeyType, rangeType)
+	msg.SetString(vm_utils.ParamKeyStart, startAddress)
 
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -4529,43 +4521,43 @@ func (module *APIModule) handleGetAddressRange(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var parser = func(msg framework.Message) (payload AddressRangeStatus, err error) {
+	var parser = func(msg vm_utils.Message) (payload AddressRangeStatus, err error) {
 		payload.Allocated = make([]AllocatedAddress, 0)
 		var addressArray, instanceArray []string
-		if payload.Start, err = msg.GetString(framework.ParamKeyStart); err != nil{
+		if payload.Start, err = msg.GetString(vm_utils.ParamKeyStart); err != nil {
 			return
 		}
-		if payload.End, err = msg.GetString(framework.ParamKeyEnd); err != nil{
+		if payload.End, err = msg.GetString(vm_utils.ParamKeyEnd); err != nil {
 			return
 		}
-		if payload.Netmask, err = msg.GetString(framework.ParamKeyMask); err != nil{
+		if payload.Netmask, err = msg.GetString(vm_utils.ParamKeyMask); err != nil {
 			return
 		}
-		capacity, err := msg.GetUInt(framework.ParamKeyCount)
-		if err != nil{
+		capacity, err := msg.GetUInt(vm_utils.ParamKeyCount)
+		if err != nil {
 			return
 		}
 		payload.Capacity = uint32(capacity)
 
-		if addressArray, err = msg.GetStringArray(framework.ParamKeyAddress); err != nil{
+		if addressArray, err = msg.GetStringArray(vm_utils.ParamKeyAddress); err != nil {
 			return
 		}
-		if instanceArray, err = msg.GetStringArray(framework.ParamKeyInstance); err != nil{
+		if instanceArray, err = msg.GetStringArray(vm_utils.ParamKeyInstance); err != nil {
 			return
 		}
 		var count = len(addressArray)
-		if count != len(instanceArray){
+		if count != len(instanceArray) {
 			err = fmt.Errorf("unmatched instance array size %d", len(instanceArray))
 			return
 		}
 		payload.Allocated = make([]AllocatedAddress, 0)
-		for i := 0; i< count ; i++{
+		for i := 0; i < count; i++ {
 			payload.Allocated = append(payload.Allocated, AllocatedAddress{addressArray[i], instanceArray[i]})
 		}
 		return payload, nil
 	}
 	payload, err := parser(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse get address range result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -4573,8 +4565,8 @@ func (module *APIModule) handleGetAddressRange(w http.ResponseWriter, r *http.Re
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) handleAddAddressRange(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleAddAddressRange(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4588,18 +4580,18 @@ func (module *APIModule) handleAddAddressRange(w http.ResponseWriter, r *http.Re
 	var err error
 	var decoder = json.NewDecoder(r.Body)
 	var requestData UserRequest
-	if err = decoder.Decode(&requestData); err != nil{
+	if err = decoder.Decode(&requestData); err != nil {
 		log.Printf("<api> parse add address range request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.AddAddressRangeRequest)
-	msg.SetString(framework.ParamKeyAddress, poolName)
-	msg.SetString(framework.ParamKeyType, rangeType)
-	msg.SetString(framework.ParamKeyStart, startAddress)
-	msg.SetString(framework.ParamKeyEnd, requestData.End)
-	msg.SetString(framework.ParamKeyMask, requestData.Netmask)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.AddAddressRangeRequest)
+	msg.SetString(vm_utils.ParamKeyAddress, poolName)
+	msg.SetString(vm_utils.ParamKeyType, rangeType)
+	msg.SetString(vm_utils.ParamKeyStart, startAddress)
+	msg.SetString(vm_utils.ParamKeyEnd, requestData.End)
+	msg.SetString(vm_utils.ParamKeyMask, requestData.Netmask)
 
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -4616,8 +4608,8 @@ func (module *APIModule) handleAddAddressRange(w http.ResponseWriter, r *http.Re
 	ResponseOK("", w)
 }
 
-func (module *APIModule) handleRemoveAddressRange(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if err := module.verifyRequestSignature(r); err != nil{
+func (module *APIModule) handleRemoveAddressRange(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4625,10 +4617,10 @@ func (module *APIModule) handleRemoveAddressRange(w http.ResponseWriter, r *http
 	var rangeType = params.ByName("type")
 	var startAddress = params.ByName("start")
 
-	msg, _ := framework.CreateJsonMessage(framework.RemoveAddressRangeRequest)
-	msg.SetString(framework.ParamKeyAddress, poolName)
-	msg.SetString(framework.ParamKeyType, rangeType)
-	msg.SetString(framework.ParamKeyStart, startAddress)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.RemoveAddressRangeRequest)
+	msg.SetString(vm_utils.ParamKeyAddress, poolName)
+	msg.SetString(vm_utils.ParamKeyType, rangeType)
+	msg.SetString(vm_utils.ParamKeyStart, startAddress)
 
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -4646,13 +4638,13 @@ func (module *APIModule) handleRemoveAddressRange(w http.ResponseWriter, r *http
 }
 
 func (module *APIModule) handleGetBatchCreateGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var batchID = params.ByName("id")
-	msg, _ := framework.CreateJsonMessage(framework.GetBatchCreateGuestRequest)
-	msg.SetString(framework.ParamKeyID, batchID)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.GetBatchCreateGuestRequest)
+	msg.SetString(vm_utils.ParamKeyID, batchID)
 
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -4678,53 +4670,53 @@ func (module *APIModule) handleGetBatchCreateGuest(w http.ResponseWriter, r *htt
 	const (
 		StatusProcess = "creating"
 		StatusSuccess = "created"
-		StatusFail = "fail"
+		StatusFail    = "fail"
 	)
 	var allFinished = true
-	var parser = func(msg framework.Message) (payload []GuestStatus, err error) {
+	var parser = func(msg vm_utils.Message) (payload []GuestStatus, err error) {
 		var nameArray, idArray, errArray []string
 		var statusArray, progressArray []uint64
-		if nameArray, err = msg.GetStringArray(framework.ParamKeyName); err != nil{
+		if nameArray, err = msg.GetStringArray(vm_utils.ParamKeyName); err != nil {
 			return
 		}
-		if idArray, err = msg.GetStringArray(framework.ParamKeyGuest); err != nil{
+		if idArray, err = msg.GetStringArray(vm_utils.ParamKeyGuest); err != nil {
 			return
 		}
-		if errArray, err = msg.GetStringArray(framework.ParamKeyError); err != nil{
+		if errArray, err = msg.GetStringArray(vm_utils.ParamKeyError); err != nil {
 			return
 		}
-		if statusArray, err = msg.GetUIntArray(framework.ParamKeyStatus); err != nil{
+		if statusArray, err = msg.GetUIntArray(vm_utils.ParamKeyStatus); err != nil {
 			return
 		}
-		if progressArray, err = msg.GetUIntArray(framework.ParamKeyProgress); err != nil{
+		if progressArray, err = msg.GetUIntArray(vm_utils.ParamKeyProgress); err != nil {
 			return
 		}
 		var count = len(nameArray)
-		if count != len(idArray){
+		if count != len(idArray) {
 			err = fmt.Errorf("unmatched id array size %d", len(idArray))
 			return
 		}
-		if count != len(errArray){
+		if count != len(errArray) {
 			err = fmt.Errorf("unmatched error array size %d", len(errArray))
 			return
 		}
-		if count != len(statusArray){
+		if count != len(statusArray) {
 			err = fmt.Errorf("unmatched status array size %d", len(statusArray))
 			return
 		}
-		if count != len(progressArray){
+		if count != len(progressArray) {
 			err = fmt.Errorf("unmatched progress array size %d", len(progressArray))
 			return
 		}
-		for i := 0; i < count;i++{
+		for i := 0; i < count; i++ {
 			switch statusArray[i] {
 			case BatchTaskStatusProcess:
 				allFinished = false
-				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusProcess,errArray[i], progressArray[i]})
+				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusProcess, errArray[i], progressArray[i]})
 			case BatchTaskStatusSuccess:
-				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusSuccess,errArray[i], progressArray[i]})
+				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusSuccess, errArray[i], progressArray[i]})
 			case BatchTaskStatusFail:
-				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusFail,errArray[i], progressArray[i]})
+				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusFail, errArray[i], progressArray[i]})
 			default:
 				err = fmt.Errorf("invalid status %d for guest '%s'", statusArray[i], nameArray[i])
 				return
@@ -4733,15 +4725,15 @@ func (module *APIModule) handleGetBatchCreateGuest(w http.ResponseWriter, r *htt
 		return payload, nil
 	}
 	payload, err := parser(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse batch create guest result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	if allFinished{
+	if allFinished {
 		w.WriteHeader(http.StatusOK)
-	}else{
+	} else {
 		w.WriteHeader(http.StatusAccepted)
 	}
 	ResponseOK(payload, w)
@@ -4749,7 +4741,7 @@ func (module *APIModule) handleGetBatchCreateGuest(w http.ResponseWriter, r *htt
 
 func (module *APIModule) handleStartBatchCreateGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err error
-	if err = module.verifyRequestSignature(r); err != nil{
+	if err = module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -4783,51 +4775,51 @@ func (module *APIModule) handleStartBatchCreateGuest(w http.ResponseWriter, r *h
 
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse batch create guest request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	var validator = func(config userRequest) (err error){
-		if "" == config.NamePrefix{
+	var validator = func(config userRequest) (err error) {
+		if "" == config.NamePrefix {
 			err = fmt.Errorf("prefix required")
 			return
 		}
-		if "" == config.Owner{
+		if "" == config.Owner {
 			err = fmt.Errorf("owner required")
 			return
 		}
-		if "" == config.Group{
+		if "" == config.Group {
 			err = fmt.Errorf("group required")
 			return
 		}
-		if "" == config.Pool{
+		if "" == config.Pool {
 			err = fmt.Errorf("target pool required")
 			return
 		}
-		if "" == config.Template{
+		if "" == config.Template {
 			err = fmt.Errorf("system template required")
 			return
 		}
-		if 0 == config.Cores{
+		if 0 == config.Cores {
 			err = fmt.Errorf("cores required")
 			return
 		}
-		if 0 == config.Memory{
+		if 0 == config.Memory {
 			err = fmt.Errorf("memory required")
 			return
 		}
 		return nil
 	}
 
-	if err = validator(request); err != nil{
+	if err = validator(request); err != nil {
 		log.Printf("<api> validate batch create guest request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.StartBatchCreateGuestRequest)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.StartBatchCreateGuestRequest)
 	const (
 		NameRuleOrder   = "order"
 		NameRuleMAC     = "MAC"
@@ -4835,78 +4827,78 @@ func (module *APIModule) handleStartBatchCreateGuest(w http.ResponseWriter, r *h
 	)
 	switch request.NameRule {
 	case NameRuleOrder:
-		msg.SetUInt(framework.ParamKeyMode, NameRuleByOrder)
+		msg.SetUInt(vm_utils.ParamKeyMode, NameRuleByOrder)
 	case NameRuleMAC:
-		msg.SetUInt(framework.ParamKeyMode, NameRuleByMAC)
+		msg.SetUInt(vm_utils.ParamKeyMode, NameRuleByMAC)
 	case NameRuleAddress:
-		msg.SetUInt(framework.ParamKeyMode, NameRuleByAddress)
+		msg.SetUInt(vm_utils.ParamKeyMode, NameRuleByAddress)
 	default:
 		var err = fmt.Errorf("invalid name rule '%s'", request.NameRule)
 		log.Printf("<api> validate batch create guest request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg.SetString(framework.ParamKeyName, request.NamePrefix)
-	msg.SetString(framework.ParamKeyUser, request.Owner)
-	msg.SetString(framework.ParamKeyGroup, request.Group)
-	msg.SetString(framework.ParamKeyPool, request.Pool)
+	msg.SetString(vm_utils.ParamKeyName, request.NamePrefix)
+	msg.SetString(vm_utils.ParamKeyUser, request.Owner)
+	msg.SetString(vm_utils.ParamKeyGroup, request.Group)
+	msg.SetString(vm_utils.ParamKeyPool, request.Pool)
 
-	msg.SetUInt(framework.ParamKeyCount, request.Count)
-	msg.SetUInt(framework.ParamKeyCore, request.Cores)
-	msg.SetUInt(framework.ParamKeyMemory, request.Memory)
-	msg.SetUIntArray(framework.ParamKeyDisk, request.Disks)
-	msg.SetBoolean(framework.ParamKeyOption, request.AutoStart)
-	msg.SetString(framework.ParamKeyTemplate, request.Template)
+	msg.SetUInt(vm_utils.ParamKeyCount, request.Count)
+	msg.SetUInt(vm_utils.ParamKeyCore, request.Cores)
+	msg.SetUInt(vm_utils.ParamKeyMemory, request.Memory)
+	msg.SetUIntArray(vm_utils.ParamKeyDisk, request.Disks)
+	msg.SetBoolean(vm_utils.ParamKeyOption, request.AutoStart)
+	msg.SetString(vm_utils.ParamKeyTemplate, request.Template)
 	//optional disk image
-	if "" != request.FromImage{
-		msg.SetString(framework.ParamKeyImage, request.FromImage)
+	if "" != request.FromImage {
+		msg.SetString(vm_utils.ParamKeyImage, request.FromImage)
 	}
-	msg.SetStringArray(framework.ParamKeyModule, request.Modules)
+	msg.SetStringArray(vm_utils.ParamKeyModule, request.Modules)
 	const (
 		RootLoginDisabled = iota
 		RootLoginEnabled
 	)
 	var flags []uint64
-	if nil != request.CloudInit{
-		msg.SetString(framework.ParamKeyAdmin, request.CloudInit.AdminName)
-		msg.SetString(framework.ParamKeySecret, request.CloudInit.AdminSecret)
-		msg.SetString(framework.ParamKeyPath, request.CloudInit.DataPath)
-		if request.CloudInit.RootEnabled{
+	if nil != request.CloudInit {
+		msg.SetString(vm_utils.ParamKeyAdmin, request.CloudInit.AdminName)
+		msg.SetString(vm_utils.ParamKeySecret, request.CloudInit.AdminSecret)
+		msg.SetString(vm_utils.ParamKeyPath, request.CloudInit.DataPath)
+		if request.CloudInit.RootEnabled {
 			flags = append(flags, RootLoginEnabled)
-		}else{
+		} else {
 			flags = append(flags, RootLoginDisabled)
 		}
 
-	}else{
-		msg.SetString(framework.ParamKeyAdmin, "")
-		msg.SetString(framework.ParamKeySecret, "")
-		msg.SetString(framework.ParamKeyPath, "")
+	} else {
+		msg.SetString(vm_utils.ParamKeyAdmin, "")
+		msg.SetString(vm_utils.ParamKeySecret, "")
+		msg.SetString(vm_utils.ParamKeyPath, "")
 		flags = append(flags, RootLoginEnabled)
 	}
 
-	if nil != request.QoS{
+	if nil != request.QoS {
 		var qos = request.QoS
 		switch qos.CPUPriority {
 		case priority_label_high:
-			msg.SetUInt(framework.ParamKeyPriority, PriorityHigh)
+			msg.SetUInt(vm_utils.ParamKeyPriority, PriorityHigh)
 		case priority_label_medium:
-			msg.SetUInt(framework.ParamKeyPriority, PriorityMedium)
+			msg.SetUInt(vm_utils.ParamKeyPriority, PriorityMedium)
 		case priority_label_low:
-			msg.SetUInt(framework.ParamKeyPriority, PriorityLow)
+			msg.SetUInt(vm_utils.ParamKeyPriority, PriorityLow)
 		default:
 			var err = fmt.Errorf("invalid CPU priority %s", qos.CPUPriority)
 			log.Printf("<api> invalid batch create request with CPU priority: %s", qos.CPUPriority)
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
-		msg.SetUIntArray(framework.ParamKeyLimit, []uint64{qos.ReadSpeed, qos.WriteSpeed,
+		msg.SetUIntArray(vm_utils.ParamKeyLimit, []uint64{qos.ReadSpeed, qos.WriteSpeed,
 			qos.ReadIOPS, qos.WriteIOPS, qos.ReceiveSpeed, qos.SendSpeed})
-	}else{
-		msg.SetUInt(framework.ParamKeyPriority, PriorityHigh)
-		msg.SetUIntArray(framework.ParamKeyLimit, []uint64{0, 0, 0, 0, 0, 0})
+	} else {
+		msg.SetUInt(vm_utils.ParamKeyPriority, PriorityHigh)
+		msg.SetUIntArray(vm_utils.ParamKeyLimit, []uint64{0, 0, 0, 0, 0, 0})
 	}
 
-	msg.SetUIntArray(framework.ParamKeyFlag, flags)
+	msg.SetUIntArray(vm_utils.ParamKeyFlag, flags)
 
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -4920,8 +4912,8 @@ func (module *APIModule) handleStartBatchCreateGuest(w http.ResponseWriter, r *h
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	batchID, err := resp.GetString(framework.ParamKeyID)
-	if err != nil{
+	batchID, err := resp.GetString(vm_utils.ParamKeyID)
+	if err != nil {
 		log.Printf("<api> parse batch id fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -4936,13 +4928,13 @@ func (module *APIModule) handleStartBatchCreateGuest(w http.ResponseWriter, r *h
 }
 
 func (module *APIModule) handleGetBatchDeleteGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var batchID = params.ByName("id")
-	msg, _ := framework.CreateJsonMessage(framework.GetBatchDeleteGuestRequest)
-	msg.SetString(framework.ParamKeyID, batchID)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.GetBatchDeleteGuestRequest)
+	msg.SetString(vm_utils.ParamKeyID, batchID)
 
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -4967,47 +4959,47 @@ func (module *APIModule) handleGetBatchDeleteGuest(w http.ResponseWriter, r *htt
 	const (
 		StatusProcess = "deleting"
 		StatusSuccess = "deleted"
-		StatusFail = "fail"
+		StatusFail    = "fail"
 	)
 
 	var allFinished = true
-	var parser = func(msg framework.Message) (payload []GuestStatus, err error) {
+	var parser = func(msg vm_utils.Message) (payload []GuestStatus, err error) {
 		var nameArray, idArray, errArray []string
 		var statusArray []uint64
-		if nameArray, err = msg.GetStringArray(framework.ParamKeyName); err != nil{
+		if nameArray, err = msg.GetStringArray(vm_utils.ParamKeyName); err != nil {
 			return
 		}
-		if idArray, err = msg.GetStringArray(framework.ParamKeyGuest); err != nil{
+		if idArray, err = msg.GetStringArray(vm_utils.ParamKeyGuest); err != nil {
 			return
 		}
-		if errArray, err = msg.GetStringArray(framework.ParamKeyError); err != nil{
+		if errArray, err = msg.GetStringArray(vm_utils.ParamKeyError); err != nil {
 			return
 		}
-		if statusArray, err = msg.GetUIntArray(framework.ParamKeyStatus); err != nil{
+		if statusArray, err = msg.GetUIntArray(vm_utils.ParamKeyStatus); err != nil {
 			return
 		}
 		var count = len(nameArray)
-		if count != len(idArray){
+		if count != len(idArray) {
 			err = fmt.Errorf("unmatched id array size %d", len(idArray))
 			return
 		}
-		if count != len(errArray){
+		if count != len(errArray) {
 			err = fmt.Errorf("unmatched error array size %d", len(errArray))
 			return
 		}
-		if count != len(statusArray){
+		if count != len(statusArray) {
 			err = fmt.Errorf("unmatched status array size %d", len(statusArray))
 			return
 		}
-		for i := 0; i < count;i++{
+		for i := 0; i < count; i++ {
 			switch statusArray[i] {
 			case BatchTaskStatusProcess:
-				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusProcess,errArray[i] })
+				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusProcess, errArray[i]})
 				allFinished = false
 			case BatchTaskStatusSuccess:
-				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusSuccess,errArray[i] })
+				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusSuccess, errArray[i]})
 			case BatchTaskStatusFail:
-				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusFail,errArray[i] })
+				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusFail, errArray[i]})
 			default:
 				err = fmt.Errorf("invalid status %d for guest '%s'", statusArray[i], nameArray[i])
 				return
@@ -5016,21 +5008,21 @@ func (module *APIModule) handleGetBatchDeleteGuest(w http.ResponseWriter, r *htt
 		return payload, nil
 	}
 	payload, err := parser(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse batch delete guest result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if allFinished{
+	if allFinished {
 		w.WriteHeader(http.StatusOK)
-	}else{
+	} else {
 		w.WriteHeader(http.StatusAccepted)
 	}
 	ResponseOK(payload, w)
 }
 
 func (module *APIModule) handleStartBatchDeleteGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -5040,14 +5032,14 @@ func (module *APIModule) handleStartBatchDeleteGuest(w http.ResponseWriter, r *h
 	var err error
 	var decoder = json.NewDecoder(r.Body)
 	var requestData UserRequest
-	if err = decoder.Decode(&requestData); err != nil{
+	if err = decoder.Decode(&requestData); err != nil {
 		log.Printf("<api> parse start batch delete request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.StartBatchDeleteGuestRequest)
-	msg.SetStringArray(framework.ParamKeyGuest, requestData.Guest)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.StartBatchDeleteGuestRequest)
+	msg.SetStringArray(vm_utils.ParamKeyGuest, requestData.Guest)
 
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -5061,8 +5053,8 @@ func (module *APIModule) handleStartBatchDeleteGuest(w http.ResponseWriter, r *h
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	batchID, err := resp.GetString(framework.ParamKeyID)
-	if err != nil{
+	batchID, err := resp.GetString(vm_utils.ParamKeyID)
+	if err != nil {
 		log.Printf("<api> parse batch id fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5076,15 +5068,14 @@ func (module *APIModule) handleStartBatchDeleteGuest(w http.ResponseWriter, r *h
 	ResponseOK(result, w)
 }
 
-
 func (module *APIModule) handleGetBatchStopGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var batchID = params.ByName("id")
-	msg, _ := framework.CreateJsonMessage(framework.GetBatchStopGuestRequest)
-	msg.SetString(framework.ParamKeyID, batchID)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.GetBatchStopGuestRequest)
+	msg.SetString(vm_utils.ParamKeyID, batchID)
 
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -5109,47 +5100,47 @@ func (module *APIModule) handleGetBatchStopGuest(w http.ResponseWriter, r *http.
 	const (
 		StatusProcess = "stopping"
 		StatusSuccess = "stopped"
-		StatusFail = "fail"
+		StatusFail    = "fail"
 	)
 
 	var allFinished = true
-	var parser = func(msg framework.Message) (payload []GuestStatus, err error) {
+	var parser = func(msg vm_utils.Message) (payload []GuestStatus, err error) {
 		var nameArray, idArray, errArray []string
 		var statusArray []uint64
-		if nameArray, err = msg.GetStringArray(framework.ParamKeyName); err != nil{
+		if nameArray, err = msg.GetStringArray(vm_utils.ParamKeyName); err != nil {
 			return
 		}
-		if idArray, err = msg.GetStringArray(framework.ParamKeyGuest); err != nil{
+		if idArray, err = msg.GetStringArray(vm_utils.ParamKeyGuest); err != nil {
 			return
 		}
-		if errArray, err = msg.GetStringArray(framework.ParamKeyError); err != nil{
+		if errArray, err = msg.GetStringArray(vm_utils.ParamKeyError); err != nil {
 			return
 		}
-		if statusArray, err = msg.GetUIntArray(framework.ParamKeyStatus); err != nil{
+		if statusArray, err = msg.GetUIntArray(vm_utils.ParamKeyStatus); err != nil {
 			return
 		}
 		var count = len(nameArray)
-		if count != len(idArray){
+		if count != len(idArray) {
 			err = fmt.Errorf("unmatched id array size %d", len(idArray))
 			return
 		}
-		if count != len(errArray){
+		if count != len(errArray) {
 			err = fmt.Errorf("unmatched error array size %d", len(errArray))
 			return
 		}
-		if count != len(statusArray){
+		if count != len(statusArray) {
 			err = fmt.Errorf("unmatched status array size %d", len(statusArray))
 			return
 		}
-		for i := 0; i < count;i++{
+		for i := 0; i < count; i++ {
 			switch statusArray[i] {
 			case BatchTaskStatusProcess:
-				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusProcess,errArray[i] })
+				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusProcess, errArray[i]})
 				allFinished = false
 			case BatchTaskStatusSuccess:
-				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusSuccess,errArray[i] })
+				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusSuccess, errArray[i]})
 			case BatchTaskStatusFail:
-				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusFail,errArray[i] })
+				payload = append(payload, GuestStatus{nameArray[i], idArray[i], StatusFail, errArray[i]})
 			default:
 				err = fmt.Errorf("invalid status %d for guest '%s'", statusArray[i], nameArray[i])
 				return
@@ -5158,21 +5149,21 @@ func (module *APIModule) handleGetBatchStopGuest(w http.ResponseWriter, r *http.
 		return payload, nil
 	}
 	payload, err := parser(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse batch stop guest result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if allFinished{
+	if allFinished {
 		w.WriteHeader(http.StatusOK)
-	}else{
+	} else {
 		w.WriteHeader(http.StatusAccepted)
 	}
 	ResponseOK(payload, w)
 }
 
 func (module *APIModule) handleStartBatchStopGuest(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -5183,7 +5174,7 @@ func (module *APIModule) handleStartBatchStopGuest(w http.ResponseWriter, r *htt
 	var err error
 	var decoder = json.NewDecoder(r.Body)
 	var requestData UserRequest
-	if err = decoder.Decode(&requestData); err != nil{
+	if err = decoder.Decode(&requestData); err != nil {
 		log.Printf("<api> parse start batch stop request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5196,15 +5187,15 @@ func (module *APIModule) handleStartBatchStopGuest(w http.ResponseWriter, r *htt
 	)
 
 	var options []uint64
-	if requestData.Force{
+	if requestData.Force {
 		options = []uint64{RebootDisable, ForceStopEnable}
-	}else{
+	} else {
 		options = []uint64{RebootDisable, ForceStopDisable}
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.StartBatchStopGuestRequest)
-	msg.SetStringArray(framework.ParamKeyGuest, requestData.Guest)
-	msg.SetUIntArray(framework.ParamKeyOption, options)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.StartBatchStopGuestRequest)
+	msg.SetStringArray(vm_utils.ParamKeyGuest, requestData.Guest)
+	msg.SetUIntArray(vm_utils.ParamKeyOption, options)
 
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -5218,8 +5209,8 @@ func (module *APIModule) handleStartBatchStopGuest(w http.ResponseWriter, r *htt
 		ResponseFail(ResponseDefaultError, errMsg, w)
 		return
 	}
-	batchID, err := resp.GetString(framework.ParamKeyID)
-	if err != nil{
+	batchID, err := resp.GetString(vm_utils.ParamKeyID)
+	if err != nil {
 		log.Printf("<api> parse batch id fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5233,14 +5224,14 @@ func (module *APIModule) handleStartBatchStopGuest(w http.ResponseWriter, r *htt
 	ResponseOK(result, w)
 }
 
-func (module *APIModule) querySystemTemplates(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) querySystemTemplates(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.QueryTemplateRequest)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QueryTemplateRequest)
 	respChan := make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send query system templates request fail: %s", err.Error())
@@ -5262,32 +5253,32 @@ func (module *APIModule) querySystemTemplates(w http.ResponseWriter, r *http.Req
 		ModifiedTime    string `json:"modified_time,omitempty"`
 	}
 
-	var parser = func(msg framework.Message) (items []responseItem, err error){
+	var parser = func(msg vm_utils.Message) (items []responseItem, err error) {
 		//unmarshal
 		var name, id, operatingSystem, createTime, modifyTime []string
-		if name, err = msg.GetStringArray(framework.ParamKeyName); err != nil{
+		if name, err = msg.GetStringArray(vm_utils.ParamKeyName); err != nil {
 			err = fmt.Errorf("get name fail: %s", err.Error())
 			return
 		}
-		if id, err = msg.GetStringArray(framework.ParamKeyID); err != nil{
+		if id, err = msg.GetStringArray(vm_utils.ParamKeyID); err != nil {
 			err = fmt.Errorf("get id fail: %s", err.Error())
 			return
 		}
-		if operatingSystem, err = msg.GetStringArray(framework.ParamKeySystem); err != nil{
+		if operatingSystem, err = msg.GetStringArray(vm_utils.ParamKeySystem); err != nil {
 			err = fmt.Errorf("get operating system fail: %s", err.Error())
 			return
 		}
-		if createTime, err = msg.GetStringArray(framework.ParamKeyCreate); err != nil{
+		if createTime, err = msg.GetStringArray(vm_utils.ParamKeyCreate); err != nil {
 			err = fmt.Errorf("get created time fail: %s", err.Error())
 			return
 		}
-		if modifyTime, err = msg.GetStringArray(framework.ParamKeyModify); err != nil{
+		if modifyTime, err = msg.GetStringArray(vm_utils.ParamKeyModify); err != nil {
 			err = fmt.Errorf("get modified time fail: %s", err.Error())
 			return
 		}
 		var itemCount = len(name)
 		items = make([]responseItem, 0)
-		for i := 0 ; i < itemCount;i++{
+		for i := 0; i < itemCount; i++ {
 			items = append(items, responseItem{
 				ID:              id[i],
 				Name:            name[i],
@@ -5299,7 +5290,7 @@ func (module *APIModule) querySystemTemplates(w http.ResponseWriter, r *http.Req
 		return items, nil
 	}
 	var items []responseItem
-	if items, err = parser(resp); err != nil{
+	if items, err = parser(resp); err != nil {
 		log.Printf("<api> parse query system templates result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5307,15 +5298,15 @@ func (module *APIModule) querySystemTemplates(w http.ResponseWriter, r *http.Req
 	ResponseOK(items, w)
 }
 
-func (module *APIModule) getSystemTemplate(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) getSystemTemplate(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var id = params.ByName("id")
-	msg, _ := framework.CreateJsonMessage(framework.GetTemplateRequest)
-	msg.SetString(framework.ParamKeyTemplate, id)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.GetTemplateRequest)
+	msg.SetString(vm_utils.ParamKeyTemplate, id)
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send get system template request fail: %s", err.Error())
@@ -5329,54 +5320,54 @@ func (module *APIModule) getSystemTemplate(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var parser = func(msg framework.Message) (t SystemTemplate, err error){
-		if t.ID, err = msg.GetString(framework.ParamKeyID); err != nil{
+	var parser = func(msg vm_utils.Message) (t SystemTemplate, err error) {
+		if t.ID, err = msg.GetString(vm_utils.ParamKeyID); err != nil {
 			err = fmt.Errorf("get template id fail: %s", err.Error())
 			return
 		}
 
-		if t.Name, err = msg.GetString(framework.ParamKeyName); err != nil{
+		if t.Name, err = msg.GetString(vm_utils.ParamKeyName); err != nil {
 			err = fmt.Errorf("get template name fail: %s", err.Error())
 			return
 		}
-		if t.Admin, err = msg.GetString(framework.ParamKeyAdmin); err != nil{
+		if t.Admin, err = msg.GetString(vm_utils.ParamKeyAdmin); err != nil {
 			err = fmt.Errorf("get template admin fail: %s", err.Error())
 			return
 		}
-		if t.OperatingSystem, err = msg.GetString(framework.ParamKeySystem); err != nil{
+		if t.OperatingSystem, err = msg.GetString(vm_utils.ParamKeySystem); err != nil {
 			err = fmt.Errorf("get template os fail: %s", err.Error())
 			return
 		}
-		if t.Disk, err = msg.GetString(framework.ParamKeyDisk); err != nil{
+		if t.Disk, err = msg.GetString(vm_utils.ParamKeyDisk); err != nil {
 			err = fmt.Errorf("get template disk fail: %s", err.Error())
 			return
 		}
-		if t.Network, err = msg.GetString(framework.ParamKeyNetwork); err != nil{
+		if t.Network, err = msg.GetString(vm_utils.ParamKeyNetwork); err != nil {
 			err = fmt.Errorf("get template network fail: %s", err.Error())
 			return
 		}
 
-		if t.Display, err = msg.GetString(framework.ParamKeyDisplay); err != nil{
+		if t.Display, err = msg.GetString(vm_utils.ParamKeyDisplay); err != nil {
 			err = fmt.Errorf("get template control fail: %s", err.Error())
 			return
 		}
-		if t.Control, err = msg.GetString(framework.ParamKeyMonitor); err != nil{
+		if t.Control, err = msg.GetString(vm_utils.ParamKeyMonitor); err != nil {
 			err = fmt.Errorf("get template id fail: %s", err.Error())
 			return
 		}
-		if t.USB, err = msg.GetString(framework.ParamKeyDevice); err != nil{
+		if t.USB, err = msg.GetString(vm_utils.ParamKeyDevice); err != nil {
 			err = fmt.Errorf("get template usb fail: %s", err.Error())
 			return
 		}
-		if t.Tablet, err = msg.GetString(framework.ParamKeyInterface); err != nil{
+		if t.Tablet, err = msg.GetString(vm_utils.ParamKeyInterface); err != nil {
 			err = fmt.Errorf("get template tablet fail: %s", err.Error())
 			return
 		}
-		if t.CreatedTime, err = msg.GetString(framework.ParamKeyCreate); err != nil{
+		if t.CreatedTime, err = msg.GetString(vm_utils.ParamKeyCreate); err != nil {
 			err = fmt.Errorf("get created time fail: %s", err.Error())
 			return
 		}
-		if t.ModifiedTime, err = msg.GetString(framework.ParamKeyModify); err != nil{
+		if t.ModifiedTime, err = msg.GetString(vm_utils.ParamKeyModify); err != nil {
 			err = fmt.Errorf("get modified time fail: %s", err.Error())
 			return
 		}
@@ -5384,7 +5375,7 @@ func (module *APIModule) getSystemTemplate(w http.ResponseWriter, r *http.Reques
 	}
 
 	var template SystemTemplate
-	if template, err = parser(resp); err != nil{
+	if template, err = parser(resp); err != nil {
 		log.Printf("<api> parse get system templates result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5392,68 +5383,68 @@ func (module *APIModule) getSystemTemplate(w http.ResponseWriter, r *http.Reques
 	ResponseOK(template, w)
 }
 
-func (module *APIModule) createSystemTemplate(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) createSystemTemplate(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var decoder = json.NewDecoder(r.Body)
 	var request SystemTemplateConfig
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse create system template request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	var validator = func(config SystemTemplateConfig) (err error){
-		if "" == config.Name{
+	var validator = func(config SystemTemplateConfig) (err error) {
+		if "" == config.Name {
 			err = fmt.Errorf("name required")
 			return
 		}
-		if "" == config.Admin{
+		if "" == config.Admin {
 			err = fmt.Errorf("admin required")
 			return
 		}
-		if "" == config.OperatingSystem{
+		if "" == config.OperatingSystem {
 			err = fmt.Errorf("operating system required")
 			return
 		}
-		if "" == config.Disk{
+		if "" == config.Disk {
 			err = fmt.Errorf("disk driver required")
 			return
 		}
-		if "" == config.Network{
+		if "" == config.Network {
 			err = fmt.Errorf("network driver required")
 			return
 		}
-		if "" == config.Display{
+		if "" == config.Display {
 			err = fmt.Errorf("display model required")
 			return
 		}
-		if "" == config.Control{
+		if "" == config.Control {
 			err = fmt.Errorf("control protocol required")
 			return
 		}
 		return nil
 	}
 
-	if err = validator(request); err != nil{
+	if err = validator(request); err != nil {
 		log.Printf("<api> validate create system template request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.CreateTemplateRequest)
-	msg.SetString(framework.ParamKeyName, request.Name)
-	msg.SetString(framework.ParamKeyAdmin, request.Admin)
-	msg.SetString(framework.ParamKeySystem, request.OperatingSystem)
-	msg.SetString(framework.ParamKeyDisk, request.Disk)
-	msg.SetString(framework.ParamKeyNetwork, request.Network)
-	msg.SetString(framework.ParamKeyDisplay, request.Display)
-	msg.SetString(framework.ParamKeyMonitor, request.Control)
-	msg.SetString(framework.ParamKeyDevice, request.USB)
-	msg.SetString(framework.ParamKeyInterface, request.Tablet)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.CreateTemplateRequest)
+	msg.SetString(vm_utils.ParamKeyName, request.Name)
+	msg.SetString(vm_utils.ParamKeyAdmin, request.Admin)
+	msg.SetString(vm_utils.ParamKeySystem, request.OperatingSystem)
+	msg.SetString(vm_utils.ParamKeyDisk, request.Disk)
+	msg.SetString(vm_utils.ParamKeyNetwork, request.Network)
+	msg.SetString(vm_utils.ParamKeyDisplay, request.Display)
+	msg.SetString(vm_utils.ParamKeyMonitor, request.Control)
+	msg.SetString(vm_utils.ParamKeyDevice, request.USB)
+	msg.SetString(vm_utils.ParamKeyInterface, request.Tablet)
 
 	var respChan = make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
@@ -5468,7 +5459,7 @@ func (module *APIModule) createSystemTemplate(w http.ResponseWriter, r *http.Req
 		return
 	}
 	var templateID string
-	if templateID, err = resp.GetString(framework.ParamKeyID);err != nil{
+	if templateID, err = resp.GetString(vm_utils.ParamKeyID); err != nil {
 		log.Printf("<api> get id from create result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5481,71 +5472,70 @@ func (module *APIModule) createSystemTemplate(w http.ResponseWriter, r *http.Req
 	ResponseOK(data, w)
 }
 
-
-func (module *APIModule) modifySystemTemplate(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) modifySystemTemplate(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var templateID = params.ByName("id")
 	var decoder = json.NewDecoder(r.Body)
 	var request SystemTemplateConfig
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify system template request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	var validator = func(config SystemTemplateConfig) (err error){
-		if "" == config.Name{
+	var validator = func(config SystemTemplateConfig) (err error) {
+		if "" == config.Name {
 			err = fmt.Errorf("name required")
 			return
 		}
-		if "" == config.Admin{
+		if "" == config.Admin {
 			err = fmt.Errorf("admin required")
 			return
 		}
-		if "" == config.OperatingSystem{
+		if "" == config.OperatingSystem {
 			err = fmt.Errorf("operating system required")
 			return
 		}
-		if "" == config.Disk{
+		if "" == config.Disk {
 			err = fmt.Errorf("disk driver required")
 			return
 		}
-		if "" == config.Network{
+		if "" == config.Network {
 			err = fmt.Errorf("network driver required")
 			return
 		}
-		if "" == config.Display{
+		if "" == config.Display {
 			err = fmt.Errorf("display model required")
 			return
 		}
-		if "" == config.Control{
+		if "" == config.Control {
 			err = fmt.Errorf("control protocol required")
 			return
 		}
 		return nil
 	}
 
-	if err = validator(request); err != nil{
+	if err = validator(request); err != nil {
 		log.Printf("<api> validate modify system template request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.ModifyTemplateRequest)
-	msg.SetString(framework.ParamKeyTemplate, templateID)
-	msg.SetString(framework.ParamKeyName, request.Name)
-	msg.SetString(framework.ParamKeyAdmin, request.Admin)
-	msg.SetString(framework.ParamKeySystem, request.OperatingSystem)
-	msg.SetString(framework.ParamKeyDisk, request.Disk)
-	msg.SetString(framework.ParamKeyNetwork, request.Network)
-	msg.SetString(framework.ParamKeyDisplay, request.Display)
-	msg.SetString(framework.ParamKeyMonitor, request.Control)
-	msg.SetString(framework.ParamKeyDevice, request.USB)
-	msg.SetString(framework.ParamKeyInterface, request.Tablet)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyTemplateRequest)
+	msg.SetString(vm_utils.ParamKeyTemplate, templateID)
+	msg.SetString(vm_utils.ParamKeyName, request.Name)
+	msg.SetString(vm_utils.ParamKeyAdmin, request.Admin)
+	msg.SetString(vm_utils.ParamKeySystem, request.OperatingSystem)
+	msg.SetString(vm_utils.ParamKeyDisk, request.Disk)
+	msg.SetString(vm_utils.ParamKeyNetwork, request.Network)
+	msg.SetString(vm_utils.ParamKeyDisplay, request.Display)
+	msg.SetString(vm_utils.ParamKeyMonitor, request.Control)
+	msg.SetString(vm_utils.ParamKeyDevice, request.USB)
+	msg.SetString(vm_utils.ParamKeyInterface, request.Tablet)
 
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -5562,16 +5552,15 @@ func (module *APIModule) modifySystemTemplate(w http.ResponseWriter, r *http.Req
 	ResponseOK("", w)
 }
 
-
-func (module *APIModule) deleteSystemTemplate(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) deleteSystemTemplate(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var id = params.ByName("id")
-	msg, _ := framework.CreateJsonMessage(framework.DeleteTemplateRequest)
-	msg.SetString(framework.ParamKeyTemplate, id)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.DeleteTemplateRequest)
+	msg.SetString(vm_utils.ParamKeyTemplate, id)
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send delete system template request fail: %s", err.Error())
@@ -5587,16 +5576,16 @@ func (module *APIModule) deleteSystemTemplate(w http.ResponseWriter, r *http.Req
 	ResponseOK("", w)
 }
 
-func (module *APIModule) resetMonitorSecret(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) resetMonitorSecret(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var guestID = params.ByName("id")
 
-	msg, _ := framework.CreateJsonMessage(framework.ResetSecretRequest)
-	msg.SetString(framework.ParamKeyGuest, guestID)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ResetSecretRequest)
+	msg.SetString(vm_utils.ParamKeyGuest, guestID)
 
 	var respChan = make(chan ProxyResult, 1)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -5613,15 +5602,15 @@ func (module *APIModule) resetMonitorSecret(w http.ResponseWriter, r *http.Reque
 	ResponseOK("", w)
 }
 
-func (module *APIModule) queryCellStorages(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) queryCellStorages(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var cellName = params.ByName("cell")
-	msg, _ := framework.CreateJsonMessage(framework.QueryCellStorageRequest)
-	msg.SetString(framework.ParamKeyCell, cellName)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QueryCellStorageRequest)
+	msg.SetString(vm_utils.ParamKeyCell, cellName)
 	respChan := make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send query cell storages request fail: %s", err.Error())
@@ -5641,7 +5630,7 @@ func (module *APIModule) queryCellStorages(w http.ResponseWriter, r *http.Reques
 		Data   []string `json:"data"`
 	}
 
-	var parser = func(msg framework.Message) (payload Payload, err error){
+	var parser = func(msg vm_utils.Message) (payload Payload, err error) {
 		const (
 			StoragePoolModeLocal = iota
 			StoragePoolModeNFS
@@ -5649,7 +5638,7 @@ func (module *APIModule) queryCellStorages(w http.ResponseWriter, r *http.Reques
 		)
 		//unmarshal
 		var mode uint
-		if mode, err = msg.GetUInt(framework.ParamKeyMode); err != nil{
+		if mode, err = msg.GetUInt(vm_utils.ParamKeyMode); err != nil {
 			err = fmt.Errorf("get storage mode fail: %s", err.Error())
 			return
 		}
@@ -5663,18 +5652,18 @@ func (module *APIModule) queryCellStorages(w http.ResponseWriter, r *http.Reques
 			return
 
 		}
-		if payload.System, err = msg.GetStringArray(framework.ParamKeySystem); err != nil{
+		if payload.System, err = msg.GetStringArray(vm_utils.ParamKeySystem); err != nil {
 			err = fmt.Errorf("get system paths fail: %s", err.Error())
 			return
 		}
-		if payload.Data, err = msg.GetStringArray(framework.ParamKeyData); err != nil{
+		if payload.Data, err = msg.GetStringArray(vm_utils.ParamKeyData); err != nil {
 			err = fmt.Errorf("get data paths fail: %s", err.Error())
 			return
 		}
 		return
 	}
 	var payload Payload
-	if payload, err = parser(resp); err != nil{
+	if payload, err = parser(resp); err != nil {
 		log.Printf("<api> parse query cell storages result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5682,9 +5671,9 @@ func (module *APIModule) queryCellStorages(w http.ResponseWriter, r *http.Reques
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) changeCellStorage(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) changeCellStorage(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -5694,21 +5683,21 @@ func (module *APIModule) changeCellStorage(w http.ResponseWriter, r *http.Reques
 	}
 	var decoder = json.NewDecoder(r.Body)
 	var request Payload
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse change cell storage request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if "" == request.Default{
+	if "" == request.Default {
 		err = errors.New("target path required")
 		log.Printf("<api> verify change cell storage request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.ModifyCellStorageRequest)
-	msg.SetString(framework.ParamKeyCell, cellName)
-	msg.SetString(framework.ParamKeyPath, request.Default)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyCellStorageRequest)
+	msg.SetString(vm_utils.ParamKeyCell, cellName)
+	msg.SetString(vm_utils.ParamKeyPath, request.Default)
 	respChan := make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send change cell storage request fail: %s", err.Error())
@@ -5723,10 +5712,11 @@ func (module *APIModule) changeCellStorage(w http.ResponseWriter, r *http.Reques
 	}
 	ResponseOK("", w)
 }
+
 //Security Policy Group
-func (module *APIModule) querySecurityPolicyGroups(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) querySecurityPolicyGroups(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -5735,20 +5725,20 @@ func (module *APIModule) querySecurityPolicyGroups(w http.ResponseWriter, r *htt
 	var owner = r.URL.Query().Get("owner")
 	var group = r.URL.Query().Get("group")
 
-	msg, _ := framework.CreateJsonMessage(framework.QueryPolicyGroupRequest)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QueryPolicyGroupRequest)
 
-	msg.SetString(framework.ParamKeyUser, owner)
-	msg.SetString(framework.ParamKeyGroup, group)
+	msg.SetString(vm_utils.ParamKeyUser, owner)
+	msg.SetString(vm_utils.ParamKeyGroup, group)
 
-	if "true" == globalOnly{
-		msg.SetBoolean(framework.ParamKeyLimit, true)
-	}else{
-		msg.SetBoolean(framework.ParamKeyLimit, false)
+	if "true" == globalOnly {
+		msg.SetBoolean(vm_utils.ParamKeyLimit, true)
+	} else {
+		msg.SetBoolean(vm_utils.ParamKeyLimit, false)
 	}
-	if "true" == enabledOnly{
-		msg.SetBoolean(framework.ParamKeyEnable, true)
-	}else{
-		msg.SetBoolean(framework.ParamKeyEnable, false)
+	if "true" == enabledOnly {
+		msg.SetBoolean(vm_utils.ParamKeyEnable, true)
+	} else {
+		msg.SetBoolean(vm_utils.ParamKeyEnable, false)
 	}
 	var respChan = make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
@@ -5764,7 +5754,7 @@ func (module *APIModule) querySecurityPolicyGroups(w http.ResponseWriter, r *htt
 	}
 
 	payload, err := parsePolicyGroupList(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse security policy groups result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5773,7 +5763,7 @@ func (module *APIModule) querySecurityPolicyGroups(w http.ResponseWriter, r *htt
 }
 
 func (module *APIModule) searchGuests(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-	if err := module.verifyRequestSignature(r); err != nil{
+	if err := module.verifyRequestSignature(r); err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -5794,26 +5784,26 @@ func (module *APIModule) searchGuests(w http.ResponseWriter, r *http.Request, pa
 	}
 	decoder := json.NewDecoder(r.Body)
 	var request userRequest
-	if err := decoder.Decode(&request);err != nil{
+	if err := decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse search guests request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	if 0 >= request.Limit{
+	if 0 >= request.Limit {
 		request.Limit = DefaultLimit
 	}
 
-	if "" != request.Keyword && strings.Contains(request.Keyword, " "){
+	if "" != request.Keyword && strings.Contains(request.Keyword, " ") {
 		ResponseFail(ResponseDefaultError, "only allow one keyword", w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.SearchGuestRequest)
-	msg.SetInt(framework.ParamKeyLimit, request.Limit)
-	msg.SetInt(framework.ParamKeyStart, request.Offset)
-	msg.SetString(framework.ParamKeyPool, request.Pool)
-	msg.SetString(framework.ParamKeyCell, request.Cell)
-	msg.SetString(framework.ParamKeyData, request.Keyword)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.SearchGuestRequest)
+	msg.SetInt(vm_utils.ParamKeyLimit, request.Limit)
+	msg.SetInt(vm_utils.ParamKeyStart, request.Offset)
+	msg.SetString(vm_utils.ParamKeyPool, request.Pool)
+	msg.SetString(vm_utils.ParamKeyCell, request.Cell)
+	msg.SetString(vm_utils.ParamKeyData, request.Keyword)
 
 	respChan := make(chan ProxyResult)
 	if err := module.proxy.SendRequest(msg, respChan); err != nil {
@@ -5836,19 +5826,19 @@ func (module *APIModule) searchGuests(w http.ResponseWriter, r *http.Request, pa
 
 	var payload responsePayload
 	var err error
-	if payload.Result, err = UnmarshalGuestConfigListFromMessage(resp); err != nil{
+	if payload.Result, err = UnmarshalGuestConfigListFromMessage(resp); err != nil {
 		log.Printf("<api> parse search guests result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var flags []uint64
-	if flags, err = resp.GetUIntArray(framework.ParamKeyFlag); err != nil{
+	if flags, err = resp.GetUIntArray(vm_utils.ParamKeyFlag); err != nil {
 		log.Printf("<api> parse search guests flags fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	if ValidFlagCount != len(flags){
+	if ValidFlagCount != len(flags) {
 		log.Printf("<api> unexpected search guests flags count %d => %d", len(flags), ValidFlagCount)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5861,15 +5851,15 @@ func (module *APIModule) searchGuests(w http.ResponseWriter, r *http.Request, pa
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) getSecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) getSecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var policyID = params.ByName("id")
-	msg, _ := framework.CreateJsonMessage(framework.GetPolicyGroupRequest)
-	msg.SetString(framework.ParamKeyPolicy, policyID)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.GetPolicyGroupRequest)
+	msg.SetString(vm_utils.ParamKeyPolicy, policyID)
 	var respChan = make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send get security policy group request fail: %s", err.Error())
@@ -5883,7 +5873,7 @@ func (module *APIModule) getSecurityPolicyGroup(w http.ResponseWriter, r *http.R
 		return
 	}
 	var payload restSecurityPolicyGroup
-	if payload, err = parsePolicyGroup(resp); err != nil{
+	if payload, err = parsePolicyGroup(resp); err != nil {
 		log.Printf("<api> parse get security policy group result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -5891,21 +5881,21 @@ func (module *APIModule) getSecurityPolicyGroup(w http.ResponseWriter, r *http.R
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) createSecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) createSecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var decoder = json.NewDecoder(r.Body)
 	var request restSecurityPolicyGroup
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse create security policy group request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.CreatePolicyGroupRequest)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.CreatePolicyGroupRequest)
 	request.build(msg)
 	var respChan = make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
@@ -5923,7 +5913,7 @@ func (module *APIModule) createSecurityPolicyGroup(w http.ResponseWriter, r *htt
 		ID string `json:"id"`
 	}
 	var result Response
-	if result.ID, err = resp.GetString(framework.ParamKeyPolicy); err != nil{
+	if result.ID, err = resp.GetString(vm_utils.ParamKeyPolicy); err != nil {
 		err = fmt.Errorf("get policy id fail: %s", err.Error())
 		log.Printf("<api> parse create security policy group result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
@@ -5932,24 +5922,24 @@ func (module *APIModule) createSecurityPolicyGroup(w http.ResponseWriter, r *htt
 	ResponseOK(result, w)
 }
 
-func (module *APIModule) modifySecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) modifySecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var policyID = params.ByName("id")
 	var decoder = json.NewDecoder(r.Body)
 	var request restSecurityPolicyGroup
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify security policy group request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.ModifyPolicyGroupRequest)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyPolicyGroupRequest)
 	request.build(msg)
-	msg.SetString(framework.ParamKeyPolicy, policyID)
+	msg.SetString(vm_utils.ParamKeyPolicy, policyID)
 	var respChan = make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send modify security policy group request fail: %s", err.Error())
@@ -5965,16 +5955,16 @@ func (module *APIModule) modifySecurityPolicyGroup(w http.ResponseWriter, r *htt
 	ResponseOK("", w)
 }
 
-func (module *APIModule) deleteSecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) deleteSecurityPolicyGroup(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var policyID = params.ByName("id")
 
-	msg, _ := framework.CreateJsonMessage(framework.DeletePolicyGroupRequest)
-	msg.SetString(framework.ParamKeyPolicy, policyID)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.DeletePolicyGroupRequest)
+	msg.SetString(vm_utils.ParamKeyPolicy, policyID)
 	var respChan = make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send delete security policy group request fail: %s", err.Error())
@@ -5990,16 +5980,16 @@ func (module *APIModule) deleteSecurityPolicyGroup(w http.ResponseWriter, r *htt
 	ResponseOK("", w)
 }
 
-func (module *APIModule) querySecurityPolicyRules(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) querySecurityPolicyRules(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var policyID = params.ByName("id")
 
-	msg, _ := framework.CreateJsonMessage(framework.QueryPolicyRuleRequest)
-	msg.SetString(framework.ParamKeyPolicy, policyID)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.QueryPolicyRuleRequest)
+	msg.SetString(vm_utils.ParamKeyPolicy, policyID)
 	var respChan = make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send query security policy rules request fail: %s", err.Error())
@@ -6014,7 +6004,7 @@ func (module *APIModule) querySecurityPolicyRules(w http.ResponseWriter, r *http
 	}
 
 	payload, err := parsePolicyRuleList(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse security policy rules result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -6022,45 +6012,45 @@ func (module *APIModule) querySecurityPolicyRules(w http.ResponseWriter, r *http
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) addSecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) addSecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var policyID = params.ByName("id")
 	var decoder = json.NewDecoder(r.Body)
 	var request restSecurityPolicyRule
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse add security policy rule request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	//check IP format
-	if "" != request.ToAddress{
+	if "" != request.ToAddress {
 		var ip = net.ParseIP(request.ToAddress)
-		if nil == ip{
+		if nil == ip {
 			err = fmt.Errorf("invalid source address '%s'", request.ToAddress)
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 	}
-	if "" != request.FromAddress{
+	if "" != request.FromAddress {
 		var ip = net.ParseIP(request.FromAddress)
-		if nil == ip{
+		if nil == ip {
 			err = fmt.Errorf("invalid target address '%s'", request.FromAddress)
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 	}
-	if request.ToPort > 0xFFFF{
+	if request.ToPort > 0xFFFF {
 		err = fmt.Errorf("invalid target port %d", request.ToPort)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg, _ := framework.CreateJsonMessage(framework.AddPolicyRuleRequest)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.AddPolicyRuleRequest)
 	request.build(msg)
-	msg.SetString(framework.ParamKeyPolicy, policyID)
+	msg.SetString(vm_utils.ParamKeyPolicy, policyID)
 	var respChan = make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send add security policy rule request fail: %s", err.Error())
@@ -6076,54 +6066,54 @@ func (module *APIModule) addSecurityPolicyRule(w http.ResponseWriter, r *http.Re
 	ResponseOK("", w)
 }
 
-func (module *APIModule) modifySecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) modifySecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var policyID = params.ByName("id")
 	var indexString = params.ByName("index")
 	var index int
-	if index, err = strconv.Atoi(indexString); err != nil{
+	if index, err = strconv.Atoi(indexString); err != nil {
 		err = fmt.Errorf("invalid index %s", indexString)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var decoder = json.NewDecoder(r.Body)
 	var request restSecurityPolicyRule
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify security policy rule request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	//check IP format
-	if "" != request.ToAddress{
+	if "" != request.ToAddress {
 		var ip = net.ParseIP(request.ToAddress)
-		if nil == ip{
+		if nil == ip {
 			err = fmt.Errorf("invalid source address '%s'", request.ToAddress)
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 	}
-	if "" != request.FromAddress{
+	if "" != request.FromAddress {
 		var ip = net.ParseIP(request.FromAddress)
-		if nil == ip{
+		if nil == ip {
 			err = fmt.Errorf("invalid target address '%s'", request.FromAddress)
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 	}
-	if request.ToPort > 0xFFFF{
+	if request.ToPort > 0xFFFF {
 		err = fmt.Errorf("invalid target port %d", request.ToPort)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.ModifyPolicyRuleRequest)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyPolicyRuleRequest)
 	request.build(msg)
-	msg.SetString(framework.ParamKeyPolicy, policyID)
-	msg.SetInt(framework.ParamKeyIndex, index)
+	msg.SetString(vm_utils.ParamKeyPolicy, policyID)
+	msg.SetInt(vm_utils.ParamKeyIndex, index)
 	var respChan = make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send modify security policy rule request fail: %s", err.Error())
@@ -6139,24 +6129,24 @@ func (module *APIModule) modifySecurityPolicyRule(w http.ResponseWriter, r *http
 	ResponseOK("", w)
 }
 
-func (module *APIModule) removeSecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) removeSecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var policyID = params.ByName("id")
 	var indexString = params.ByName("index")
 	var index int
-	if index, err = strconv.Atoi(indexString); err != nil{
+	if index, err = strconv.Atoi(indexString); err != nil {
 		err = fmt.Errorf("invalid index %s", indexString)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.RemovePolicyRuleRequest)
-	msg.SetString(framework.ParamKeyPolicy, policyID)
-	msg.SetInt(framework.ParamKeyIndex, index)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.RemovePolicyRuleRequest)
+	msg.SetString(vm_utils.ParamKeyPolicy, policyID)
+	msg.SetInt(vm_utils.ParamKeyIndex, index)
 	var respChan = make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send remove security policy rule request fail: %s", err.Error())
@@ -6172,20 +6162,20 @@ func (module *APIModule) removeSecurityPolicyRule(w http.ResponseWriter, r *http
 	ResponseOK("", w)
 }
 
-func (module *APIModule) moveSecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) moveSecurityPolicyRule(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	const (
-		directionUp   = "up"
+		directionUp = "up"
 		//directionDown = "down"
 	)
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var policyID = params.ByName("id")
 	var indexString = params.ByName("index")
 	var index int
-	if index, err = strconv.Atoi(indexString); err != nil{
+	if index, err = strconv.Atoi(indexString); err != nil {
 		err = fmt.Errorf("invalid index %s", indexString)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -6195,19 +6185,19 @@ func (module *APIModule) moveSecurityPolicyRule(w http.ResponseWriter, r *http.R
 		Direction string `json:"direction"`
 	}
 	var request RequestPayload
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse move security policy rule request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.ChangePolicyRuleOrderRequest)
-	msg.SetString(framework.ParamKeyPolicy, policyID)
-	msg.SetInt(framework.ParamKeyIndex, index)
-	if directionUp == request.Direction{
-		msg.SetBoolean(framework.ParamKeyFlag, true)
-	}else{
-		msg.SetBoolean(framework.ParamKeyFlag, false)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ChangePolicyRuleOrderRequest)
+	msg.SetString(vm_utils.ParamKeyPolicy, policyID)
+	msg.SetInt(vm_utils.ParamKeyIndex, index)
+	if directionUp == request.Direction {
+		msg.SetBoolean(vm_utils.ParamKeyFlag, true)
+	} else {
+		msg.SetBoolean(vm_utils.ParamKeyFlag, false)
 	}
 	var respChan = make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
@@ -6224,16 +6214,16 @@ func (module *APIModule) moveSecurityPolicyRule(w http.ResponseWriter, r *http.R
 	ResponseOK("", w)
 }
 
-func (module *APIModule) getGuestSecurityPolicy(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) getGuestSecurityPolicy(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var instanceID = params.ByName("id")
 
-	msg, _ := framework.CreateJsonMessage(framework.GetGuestRuleRequest)
-	msg.SetString(framework.ParamKeyInstance, instanceID)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.GetGuestRuleRequest)
+	msg.SetString(vm_utils.ParamKeyInstance, instanceID)
 	var respChan = make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send query guest security policy request fail: %s", err.Error())
@@ -6248,7 +6238,7 @@ func (module *APIModule) getGuestSecurityPolicy(w http.ResponseWriter, r *http.R
 	}
 
 	payload, err := parseGuestSecurityPolicy(resp)
-	if err != nil{
+	if err != nil {
 		log.Printf("<api> parse guest security policy result fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -6256,9 +6246,9 @@ func (module *APIModule) getGuestSecurityPolicy(w http.ResponseWriter, r *http.R
 	ResponseOK(payload, w)
 }
 
-func (module *APIModule) changeGuestSecurityAction(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) changeGuestSecurityAction(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
@@ -6268,15 +6258,15 @@ func (module *APIModule) changeGuestSecurityAction(w http.ResponseWriter, r *htt
 		Action string `json:"action"`
 	}
 	var request RequestPayload
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse change guest policy action request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.ChangeGuestRuleDefaultActionRequest)
-	msg.SetString(framework.ParamKeyInstance, instanceID)
-	msg.SetBoolean(framework.ParamKeyAction, actionStringAccept == request.Action)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ChangeGuestRuleDefaultActionRequest)
+	msg.SetString(vm_utils.ParamKeyInstance, instanceID)
+	msg.SetBoolean(vm_utils.ParamKeyAction, actionStringAccept == request.Action)
 	var respChan = make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send change guest policy action fail: %s", err.Error())
@@ -6292,49 +6282,49 @@ func (module *APIModule) changeGuestSecurityAction(w http.ResponseWriter, r *htt
 	ResponseOK("", w)
 }
 
-func (module *APIModule) addGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) addGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var instanceID = params.ByName("id")
 	var decoder = json.NewDecoder(r.Body)
 	var request restSecurityPolicyRule
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse add guest policy rule request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	//check IP format
-	if "" != request.ToAddress{
+	if "" != request.ToAddress {
 		var ip = net.ParseIP(request.ToAddress)
-		if nil == ip{
+		if nil == ip {
 			err = fmt.Errorf("invalid source address '%s'", request.ToAddress)
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 	}
-	if "" != request.FromAddress{
+	if "" != request.FromAddress {
 		var ip = net.ParseIP(request.FromAddress)
-		if nil == ip{
+		if nil == ip {
 			err = fmt.Errorf("invalid target address '%s'", request.FromAddress)
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 	}
-	if request.ToPort > 0xFFFF{
+	if request.ToPort > 0xFFFF {
 		err = fmt.Errorf("invalid target port %d", request.ToPort)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg, _ := framework.CreateJsonMessage(framework.AddGuestRuleRequest)
-	if err =request.buildForCell(msg); err != nil{
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.AddGuestRuleRequest)
+	if err = request.buildForCell(msg); err != nil {
 		log.Printf("<api> build add guest policy rule request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg.SetString(framework.ParamKeyInstance, instanceID)
+	msg.SetString(vm_utils.ParamKeyInstance, instanceID)
 	var respChan = make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send add guest policy rule request fail: %s", err.Error())
@@ -6350,57 +6340,57 @@ func (module *APIModule) addGuestSecurityRule(w http.ResponseWriter, r *http.Req
 	ResponseOK("", w)
 }
 
-func (module *APIModule) modifyGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) modifyGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var instanceID = params.ByName("id")
 	var indexString = params.ByName("index")
 	var index int
-	if index, err = strconv.Atoi(indexString); err != nil{
+	if index, err = strconv.Atoi(indexString); err != nil {
 		err = fmt.Errorf("invalid index %s", indexString)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var decoder = json.NewDecoder(r.Body)
 	var request restSecurityPolicyRule
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse modify guest policy rule request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	//check IP format
-	if "" != request.ToAddress{
+	if "" != request.ToAddress {
 		var ip = net.ParseIP(request.ToAddress)
-		if nil == ip{
+		if nil == ip {
 			err = fmt.Errorf("invalid source address '%s'", request.ToAddress)
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 	}
-	if "" != request.FromAddress{
+	if "" != request.FromAddress {
 		var ip = net.ParseIP(request.FromAddress)
-		if nil == ip{
+		if nil == ip {
 			err = fmt.Errorf("invalid target address '%s'", request.FromAddress)
 			ResponseFail(ResponseDefaultError, err.Error(), w)
 			return
 		}
 	}
-	if request.ToPort > 0xFFFF{
+	if request.ToPort > 0xFFFF {
 		err = fmt.Errorf("invalid target port %d", request.ToPort)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg, _ := framework.CreateJsonMessage(framework.ModifyGuestRuleRequest)
-	if err =request.buildForCell(msg); err != nil{
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyGuestRuleRequest)
+	if err = request.buildForCell(msg); err != nil {
 		log.Printf("<api> build modify guest policy rule request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
-	msg.SetString(framework.ParamKeyInstance, instanceID)
-	msg.SetInt(framework.ParamKeyIndex, index)
+	msg.SetString(vm_utils.ParamKeyInstance, instanceID)
+	msg.SetInt(vm_utils.ParamKeyIndex, index)
 	var respChan = make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send modify guest policy rule request fail: %s", err.Error())
@@ -6416,24 +6406,24 @@ func (module *APIModule) modifyGuestSecurityRule(w http.ResponseWriter, r *http.
 	ResponseOK("", w)
 }
 
-func (module *APIModule) removeGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) removeGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var instanceID = params.ByName("id")
 	var indexString = params.ByName("index")
 	var index int
-	if index, err = strconv.Atoi(indexString); err != nil{
+	if index, err = strconv.Atoi(indexString); err != nil {
 		err = fmt.Errorf("invalid index %s", indexString)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.RemoveGuestRuleRequest)
-	msg.SetString(framework.ParamKeyInstance, instanceID)
-	msg.SetInt(framework.ParamKeyIndex, index)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.RemoveGuestRuleRequest)
+	msg.SetString(vm_utils.ParamKeyInstance, instanceID)
+	msg.SetInt(vm_utils.ParamKeyIndex, index)
 	var respChan = make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
 		log.Printf("<api> send remove guest policy rule request fail: %s", err.Error())
@@ -6449,21 +6439,21 @@ func (module *APIModule) removeGuestSecurityRule(w http.ResponseWriter, r *http.
 	ResponseOK("", w)
 }
 
-func (module *APIModule) moveGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (module *APIModule) moveGuestSecurityRule(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	const (
 		directionUp = "up"
 		modeUp      = 1
 		modeDown    = -1
 	)
 	var err = module.verifyRequestSignature(r)
-	if  err != nil{
+	if err != nil {
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 	var instanceID = params.ByName("id")
 	var indexString = params.ByName("index")
 	var index int
-	if index, err = strconv.Atoi(indexString); err != nil{
+	if index, err = strconv.Atoi(indexString); err != nil {
 		err = fmt.Errorf("invalid index %s", indexString)
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
@@ -6473,19 +6463,19 @@ func (module *APIModule) moveGuestSecurityRule(w http.ResponseWriter, r *http.Re
 		Direction string `json:"direction"`
 	}
 	var request RequestPayload
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<api> parse move guest policy rule request fail: %s", err.Error())
 		ResponseFail(ResponseDefaultError, err.Error(), w)
 		return
 	}
 
-	msg, _ := framework.CreateJsonMessage(framework.ChangeGuestRuleOrderRequest)
-	msg.SetString(framework.ParamKeyInstance, instanceID)
-	msg.SetInt(framework.ParamKeyIndex, index)
-	if directionUp == request.Direction{
-		msg.SetInt(framework.ParamKeyMode, modeUp)
-	}else{
-		msg.SetInt(framework.ParamKeyMode, modeDown)
+	msg, _ := vm_utils.CreateJsonMessage(vm_utils.ChangeGuestRuleOrderRequest)
+	msg.SetString(vm_utils.ParamKeyInstance, instanceID)
+	msg.SetInt(vm_utils.ParamKeyIndex, index)
+	if directionUp == request.Direction {
+		msg.SetInt(vm_utils.ParamKeyMode, modeUp)
+	} else {
+		msg.SetInt(vm_utils.ParamKeyMode, modeDown)
 	}
 	var respChan = make(chan ProxyResult, 1)
 	if err = module.proxy.SendRequest(msg, respChan); err != nil {
@@ -6502,7 +6492,7 @@ func (module *APIModule) moveGuestSecurityRule(w http.ResponseWriter, r *http.Re
 	ResponseOK("", w)
 }
 
-func IsResponseSuccess(respChan chan ProxyResult) (resp framework.Message, errMessage string, success bool) {
+func IsResponseSuccess(respChan chan ProxyResult) (resp vm_utils.Message, errMessage string, success bool) {
 	result, ok := <-respChan
 	if !ok {
 		return resp, "channel closed", false

@@ -1,51 +1,51 @@
 package imageserver
 
 import (
-	"github.com/project-nano/framework"
+	"vm_manager/vm_utils"
+
 	"log"
 )
 
 type CreateMediaImageExecutor struct {
-	Sender      framework.MessageSender
+	Sender      vm_utils.MessageSender
 	ImageServer *ImageManager
 }
 
-
-func (executor *CreateMediaImageExecutor)Execute(id framework.SessionID, request framework.Message,
-	incoming chan framework.Message, terminate chan bool) (err error) {
+func (executor *CreateMediaImageExecutor) Execute(id vm_utils.SessionID, request vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) (err error) {
 	var config ImageConfig
-	if config.Name, err = request.GetString(framework.ParamKeyName); err != nil {
+	if config.Name, err = request.GetString(vm_utils.ParamKeyName); err != nil {
 		return err
 	}
-	if config.Owner, err = request.GetString(framework.ParamKeyUser); err != nil {
+	if config.Owner, err = request.GetString(vm_utils.ParamKeyUser); err != nil {
 		return err
 	}
-	if config.Group, err = request.GetString(framework.ParamKeyGroup); err != nil {
+	if config.Group, err = request.GetString(vm_utils.ParamKeyGroup); err != nil {
 		return err
 	}
-	if config.Description, err = request.GetString(framework.ParamKeyDescription); err != nil {
+	if config.Description, err = request.GetString(vm_utils.ParamKeyDescription); err != nil {
 		return err
 	}
-	if config.Tags, err = request.GetStringArray(framework.ParamKeyTag); err != nil {
+	if config.Tags, err = request.GetStringArray(vm_utils.ParamKeyTag); err != nil {
 		return err
 	}
 	var respChan = make(chan ImageResult, 1)
 	executor.ImageServer.CreateMediaImage(config, respChan)
-	result := <- respChan
+	result := <-respChan
 
-	resp, _ := framework.CreateJsonMessage(framework.CreateMediaImageResponse)
+	resp, _ := vm_utils.CreateJsonMessage(vm_utils.CreateMediaImageResponse)
 	resp.SetSuccess(false)
 	resp.SetFromSession(id)
 	resp.SetToSession(request.GetFromSession())
 
-	if result.Error != nil{
+	if result.Error != nil {
 		err = result.Error
 		resp.SetError(err.Error())
 		log.Printf("[%08X] create media image fail: %s", id, err.Error())
 		return executor.Sender.SendMessage(resp, request.GetSender())
 	}
 	log.Printf("[%08X] new media image '%s' created(id '%s')", id, config.Name, result.ID)
-	resp.SetString(framework.ParamKeyImage, result.ID)
+	resp.SetString(vm_utils.ParamKeyImage, result.ID)
 	resp.SetSuccess(true)
 	return executor.Sender.SendMessage(resp, request.GetSender())
 }

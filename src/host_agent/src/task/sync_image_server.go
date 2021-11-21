@@ -1,34 +1,34 @@
 package task
 
 import (
-	"github.com/project-nano/framework"
-	"github.com/project-nano/core/modules"
-	"net/http"
 	"log"
+	"net/http"
+	"vm_manager/host_agent/src/modules"
+	"vm_manager/vm_utils"
 )
 
 type SyncImageServerExecutor struct {
-	Sender         framework.MessageSender
+	Sender         vm_utils.MessageSender
 	ResourceModule modules.ResourceModule
 	Client         *http.Client
 }
 
-func (executor *SyncImageServerExecutor) Execute(id framework.SessionID, request framework.Message,
-	incoming chan framework.Message, terminate chan bool) (err error) {
+func (executor *SyncImageServerExecutor) Execute(id vm_utils.SessionID, request vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) (err error) {
 	const (
 		Protocol = "https"
 	)
 	var serverName, mediaHost string
 	var mediaPort uint
-	if serverName, err = request.GetString(framework.ParamKeyName);err != nil{
+	if serverName, err = request.GetString(vm_utils.ParamKeyName); err != nil {
 		log.Printf("[%08X] sync image server fail: %s", id, err.Error())
 		return nil
 	}
-	if mediaHost, err = request.GetString(framework.ParamKeyHost);err != nil{
+	if mediaHost, err = request.GetString(vm_utils.ParamKeyHost); err != nil {
 		log.Printf("[%08X] sync image server fail: %s", id, err.Error())
 		return nil
 	}
-	if mediaPort, err = request.GetUInt(framework.ParamKeyPort);err != nil{
+	if mediaPort, err = request.GetUInt(vm_utils.ParamKeyPort); err != nil {
 		log.Printf("[%08X] sync image server fail: %s", id, err.Error())
 		return nil
 	}

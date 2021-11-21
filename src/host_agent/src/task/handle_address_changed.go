@@ -1,23 +1,23 @@
 package task
 
 import (
-	"github.com/project-nano/framework"
-	"github.com/project-nano/core/modules"
 	"log"
+	"vm_manager/host_agent/src/modules"
+	"vm_manager/vm_utils"
 )
 
 type HandleAddressChangedExecutor struct {
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *HandleAddressChangedExecutor)Execute(id framework.SessionID, event framework.Message,
-	incoming chan framework.Message, terminate chan bool) error {
-	instanceID, err := event.GetString(framework.ParamKeyInstance)
+func (executor *HandleAddressChangedExecutor) Execute(id vm_utils.SessionID, event vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) error {
+	instanceID, err := event.GetString(vm_utils.ParamKeyInstance)
 	if err != nil {
 		return err
 	}
-	address, err := event.GetString(framework.ParamKeyAddress)
-	if err != nil{
+	address, err := event.GetString(vm_utils.ParamKeyAddress)
+	if err != nil {
 		return err
 	}
 
@@ -25,8 +25,8 @@ func (executor *HandleAddressChangedExecutor)Execute(id framework.SessionID, eve
 		address, event.GetSender(), event.GetFromSession())
 	var respChan = make(chan error)
 	executor.ResourceModule.UpdateInstanceAddress(instanceID, address, respChan)
-	err = <- respChan
-	if err != nil{
+	err = <-respChan
+	if err != nil {
 		log.Printf("[%08X] update address fail: %s", id, err.Error())
 	}
 	return nil

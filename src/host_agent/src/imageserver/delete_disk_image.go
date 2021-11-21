@@ -1,23 +1,22 @@
 package imageserver
 
 import (
-	"github.com/project-nano/framework"
 	"log"
+	"vm_manager/vm_utils"
 )
 
 type DeleteDiskImageExecutor struct {
-	Sender      framework.MessageSender
+	Sender      vm_utils.MessageSender
 	ImageServer *ImageManager
 }
 
-
-func (executor *DeleteDiskImageExecutor)Execute(id framework.SessionID, request framework.Message,
-	incoming chan framework.Message, terminate chan bool) (err error) {
-	imageID, err := request.GetString(framework.ParamKeyImage)
-	if err != nil{
+func (executor *DeleteDiskImageExecutor) Execute(id vm_utils.SessionID, request vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) (err error) {
+	imageID, err := request.GetString(vm_utils.ParamKeyImage)
+	if err != nil {
 		return err
 	}
-	resp, _ := framework.CreateJsonMessage(framework.DeleteDiskImageResponse)
+	resp, _ := vm_utils.CreateJsonMessage(vm_utils.DeleteDiskImageResponse)
 	resp.SetSuccess(false)
 	resp.SetFromSession(id)
 	resp.SetToSession(request.GetFromSession())

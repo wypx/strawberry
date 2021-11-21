@@ -2,31 +2,31 @@ package task
 
 import (
 	"fmt"
-	"github.com/project-nano/core/modules"
-	"github.com/project-nano/framework"
 	"log"
 	"time"
+	"vm_manager/host_agent/src/modules"
+	"vm_manager/vm_utils"
 )
 
 type ModifyGuestAutoStartExecutor struct {
-	Sender         framework.MessageSender
+	Sender         vm_utils.MessageSender
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *ModifyGuestAutoStartExecutor)Execute(id framework.SessionID, request framework.Message,
-	incoming chan framework.Message, terminate chan bool) (err error) {
+func (executor *ModifyGuestAutoStartExecutor) Execute(id vm_utils.SessionID, request vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) (err error) {
 	var guestID string
 	var enable bool
-	if guestID, err = request.GetString(framework.ParamKeyGuest); err != nil{
+	if guestID, err = request.GetString(vm_utils.ParamKeyGuest); err != nil {
 		err = fmt.Errorf("get guest ID fail: %s", err.Error())
 		return
 	}
-	if enable, err = request.GetBoolean(framework.ParamKeyEnable); err != nil{
+	if enable, err = request.GetBoolean(vm_utils.ParamKeyEnable); err != nil {
 		err = fmt.Errorf("get enable option fail: %s", err.Error())
 		return
 	}
 
-	resp, _ := framework.CreateJsonMessage(framework.ModifyAutoStartResponse)
+	resp, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyAutoStartResponse)
 	resp.SetToSession(request.GetFromSession())
 	resp.SetFromSession(id)
 	resp.SetSuccess(false)
@@ -35,17 +35,17 @@ func (executor *ModifyGuestAutoStartExecutor)Execute(id framework.SessionID, req
 	{
 		var respChan = make(chan modules.ResourceResult, 1)
 		executor.ResourceModule.GetInstanceStatus(guestID, respChan)
-		result := <- respChan
-		if result.Error != nil{
+		result := <-respChan
+		if result.Error != nil {
 			log.Printf("[%08X] fetch instance fail: %s", id, result.Error.Error())
 			resp.SetError(result.Error.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
 		ins = result.Instance
-		if ins.AutoStart == enable{
-			if enable{
+		if ins.AutoStart == enable {
+			if enable {
 				err = fmt.Errorf("auto start of guest '%s' already enabled", ins.Name)
-			}else{
+			} else {
 				err = fmt.Errorf("auto start of guest '%s' already disabled", ins.Name)
 			}
 			resp.SetError(err.Error())
@@ -54,42 +54,42 @@ func (executor *ModifyGuestAutoStartExecutor)Execute(id framework.SessionID, req
 	}
 	{
 		//forward request
-		forward, _ := framework.CreateJsonMessage(framework.ModifyAutoStartRequest)
+		forward, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyAutoStartRequest)
 		forward.SetFromSession(id)
-		forward.SetString(framework.ParamKeyGuest, guestID)
-		forward.SetBoolean(framework.ParamKeyEnable, enable)
-		if err = executor.Sender.SendMessage(forward, ins.Cell); err != nil{
+		forward.SetString(vm_utils.ParamKeyGuest, guestID)
+		forward.SetBoolean(vm_utils.ParamKeyEnable, enable)
+		if err = executor.Sender.SendMessage(forward, ins.Cell); err != nil {
 			log.Printf("[%08X] forward modify auto start to cell '%s' fail: %s", id, ins.Cell, err.Error())
 			resp.SetError(err.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
 		timer := time.NewTimer(modules.DefaultOperateTimeout)
-		select{
-		case cellResp := <- incoming:
-			if cellResp.IsSuccess(){
+		select {
+		case cellResp := <-incoming:
+			if cellResp.IsSuccess() {
 				//update
 				var respChan = make(chan error, 1)
 				executor.ResourceModule.UpdateGuestAutoStart(guestID, enable, respChan)
-				err = <- respChan
-				if err != nil{
+				err = <-respChan
+				if err != nil {
 					log.Printf("[%08X] update auto start status of guest '%s' fail: %s", id, ins.Name, err.Error())
 					resp.SetError(err.Error())
 					return executor.Sender.SendMessage(resp, request.GetSender())
 				}
-				if enable{
+				if enable {
 					log.Printf("[%08X] guest '%s' enable auto start", id, guestID)
-				}else{
+				} else {
 					log.Printf("[%08X] guest '%s' disable auto start", id, guestID)
 				}
 
-			}else{
+			} else {
 				log.Printf("[%08X] modify auto start fail: %s", id, cellResp.GetError())
 			}
 			cellResp.SetFromSession(id)
 			cellResp.SetToSession(request.GetFromSession())
 			//forward
 			return executor.Sender.SendMessage(cellResp, request.GetSender())
-		case <- timer.C:
+		case <-timer.C:
 			//timeout
 			log.Printf("[%08X] wait modify auto start response timeout", id)
 			resp.SetError("request timeout")

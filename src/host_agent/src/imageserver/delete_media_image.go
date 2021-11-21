@@ -1,31 +1,31 @@
 package imageserver
 
 import (
-	"github.com/project-nano/framework"
+	"vm_manager/vm_utils"
+
 	"log"
 )
 
 type DeleteMediaImageExecutor struct {
-	Sender      framework.MessageSender
+	Sender      vm_utils.MessageSender
 	ImageServer *ImageManager
 }
 
-
-func (executor *DeleteMediaImageExecutor)Execute(id framework.SessionID, request framework.Message,
-	incoming chan framework.Message, terminate chan bool) (err error) {
-	imageID, err := request.GetString(framework.ParamKeyImage)
-	if err != nil{
+func (executor *DeleteMediaImageExecutor) Execute(id vm_utils.SessionID, request vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) (err error) {
+	imageID, err := request.GetString(vm_utils.ParamKeyImage)
+	if err != nil {
 		return err
 	}
-	resp, _ := framework.CreateJsonMessage(framework.DeleteMediaImageResponse)
+	resp, _ := vm_utils.CreateJsonMessage(vm_utils.DeleteMediaImageResponse)
 	resp.SetSuccess(false)
 	resp.SetFromSession(id)
 	resp.SetToSession(request.GetFromSession())
 
 	var respChan = make(chan error, 1)
 	executor.ImageServer.DeleteMediaImage(imageID, respChan)
-	err = <- respChan
-	if err != nil{
+	err = <-respChan
+	if err != nil {
 		resp.SetError(err.Error())
 		log.Printf("[%08X] delete media image fail: %s", id, err.Error())
 		return executor.Sender.SendMessage(resp, request.GetSender())

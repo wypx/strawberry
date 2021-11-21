@@ -45,7 +45,7 @@ type MonitorChannel struct {
 type ChannelManager struct {
 	channels map[string]MonitorChannel
 	commands chan channelCommand
-	runner   *framework.SimpleRunner
+	runner   *vm_utils.SimpleRunner
 }
 
 func CreateChannelManager() (manager *ChannelManager, err error){
@@ -55,7 +55,7 @@ func CreateChannelManager() (manager *ChannelManager, err error){
 	manager = &ChannelManager{}
 	manager.channels = map[string]MonitorChannel{}
 	manager.commands = make(chan channelCommand, DefaultQueueSize)
-	manager.runner = framework.CreateSimpleRunner(manager.Routine)
+	manager.runner = vm_utils.CreateSimpleRunner(manager.Routine)
 	return
 }
 
@@ -76,7 +76,7 @@ func (manager *ChannelManager) Stop() error{
 	return manager.runner.Stop()
 }
 
-func (manager *ChannelManager)Routine(c framework.RoutineController){
+func (manager *ChannelManager)Routine(c vm_utils.RoutineController){
 	log.Println("<channel> started")
 	const (
 		CheckInterval = 2*time.Second

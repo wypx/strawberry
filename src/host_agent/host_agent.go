@@ -1,4 +1,4 @@
-package main
+package host_agent
 
 import (
 	"crypto/rand"
@@ -18,10 +18,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/project-nano/core/imageserver"
-	"github.com/project-nano/core/modules"
-	"github.com/project-nano/framework"
-	"github.com/project-nano/sonar"
+	"vm_manager/host_agent/src/imageserver"
+	"vm_manager/host_agent/src/modules"
+	"vm_manager/vm_utils"
+	VmUtilsNetwork "vm_manager/vm_utils/network"
 )
 
 type DomainConfig struct {
@@ -83,7 +83,12 @@ func (service *MainService) Stop() (output string, err error) {
 	return
 }
 
-func createDaemon(workingPath string) (service framework.DaemonizedService, err error) {
+func (service *MainService) Snapshot() (output string, err error) {
+	fmt.Printf("Snapshot interface not implement\n")
+	return
+}
+
+func createDaemon(workingPath string) (service vm_utils.DaemonizedService, err error) {
 	var configPath = filepath.Join(workingPath, ConfigPathName)
 	var configFile = filepath.Join(configPath, DomainConfigFileName)
 	data, err := ioutil.ReadFile(configFile)
@@ -104,36 +109,32 @@ func createDaemon(workingPath string) (service framework.DaemonizedService, err 
 		}
 	}
 	var inf *net.Interface
-	inf, err = framework.InterfaceByAddress(config.ListenAddress)
+	inf, err = vm_utils.InterfaceByAddress(config.ListenAddress)
 	if err != nil {
 		return
 	}
 
-	endpointCore, err := framework.CreateStubEndpoint(config.GroupAddress, config.GroupPort, config.Domain, config.ListenAddress)
+	endpointCore, err := vm_utils.CreateStubEndpoint(config.GroupAddress, config.GroupPort, config.Domain, config.ListenAddress)
 	if err != nil {
 		return
 	}
 	var s = MainService{}
 	s.core = &CoreService{EndpointService: endpointCore, ConfigPath: configPath, DataPath: dataPath}
 	s.core.RegisterHandler(s.core)
-	err = s.core.GenerateName(framework.ServiceTypeCore, inf)
+	err = s.core.GenerateName(vm_utils.ServiceTypeCore, inf)
 	if err != nil {
 		return
 	}
-	endpointImage, err := framework.CreatePeerEndpoint(config.GroupAddress, config.GroupPort, config.Domain)
+	endpointImage, err := vm_utils.CreatePeerEndpoint(config.GroupAddress, config.GroupPort, config.Domain)
 	if err != nil {
 		return
 	}
 	s.image = &imageserver.ImageService{EndpointService: endpointImage, ConfigPath: configPath, DataPath: dataPath}
 	s.image.RegisterHandler(s.image)
-	if err = s.image.GenerateName(framework.ServiceTypeImage, inf); err != nil {
+	if err = s.image.GenerateName(vm_utils.ServiceTypeImage, inf); err != nil {
 		return
 	}
 	return &s, nil
-}
-
-func main() {
-	framework.ProcessDaemon(ExecuteName, generateConfigure, createDaemon)
 }
 
 func generateConfigure(workingPath string) (err error) {
@@ -164,16 +165,16 @@ func generateDomainConfig(configPath string) (err error) {
 		fmt.Println("No domain config available, following instructions to generate a new one.")
 
 		var config = DomainConfig{}
-		if config.Domain, err = framework.InputString("Group Domain Name", sonar.DefaultDomain); err != nil {
+		if config.Domain, err = vm_utils.InputString("Group Domain Name", VmUtilsNetwork.DefaultDomain); err != nil {
 			return
 		}
-		if config.GroupAddress, err = framework.InputMultiCastAddress("Group MultiCast Address", sonar.DefaultMulticastAddress); err != nil {
+		if config.GroupAddress, err = vm_utils.InputMultiCastAddress("Group MultiCast Address", VmUtilsNetwork.DefaultMulticastAddress); err != nil {
 			return
 		}
-		if config.GroupPort, err = framework.InputNetworkPort("Group MultiCast Port", sonar.DefaultMulticastPort); err != nil {
+		if config.GroupPort, err = vm_utils.InputNetworkPort("Group MultiCast Port", VmUtilsNetwork.DefaultMulticastPort); err != nil {
 			return
 		}
-		if config.ListenAddress, err = framework.ChooseIPV4Address("Listen Address"); err != nil {
+		if config.ListenAddress, err = vm_utils.ChooseIPV4Address("Listen Address"); err != nil {
 			return
 		}
 		//write
@@ -199,7 +200,7 @@ func generateAPIConfig(configPath string) (err error) {
 		fmt.Println("No API config available, following instructions to generate a new one.")
 
 		var config = modules.APIConfig{}
-		if config.Port, err = framework.InputInteger("API Serve Port", DefaultAPIServePort); err != nil {
+		if config.Port, err = vm_utils.InputInteger("API Serve Port", DefaultAPIServePort); err != nil {
 			return
 		}
 		//write
@@ -240,7 +241,7 @@ func generateImageConfig(workingPath, configPath string) (err error) {
 		}
 		var defaultRootCertPath = filepath.Join(RootPath, ProjectName, CertPathName)
 		var rootCertPath string
-		if rootCertPath, err = framework.InputString("Root Cert File Location", defaultRootCertPath); err != nil {
+		if rootCertPath, err = vm_utils.InputString("Root Cert File Location", defaultRootCertPath); err != nil {
 			return
 		}
 		var rootCertFile = filepath.Join(rootCertPath, fmt.Sprintf("%s_ca.crt.pem", ProjectName))
@@ -252,7 +253,7 @@ func generateImageConfig(workingPath, configPath string) (err error) {
 			return
 		}
 		var localAddress string
-		if localAddress, err = framework.ChooseIPV4Address("Image Server Address"); err != nil {
+		if localAddress, err = vm_utils.ChooseIPV4Address("Image Server Address"); err != nil {
 			return
 		}
 		if err = signImageCertificate(rootCertFile, rootKeyFile, localAddress, generatedCertFile, generatedKeyFile); err != nil {
@@ -349,6 +350,6 @@ func signImageCertificate(caCert, caKey, localAddress, certPath, keyPath string)
 	return nil
 }
 
-func HostAgentInit() {
-
+func Initialize() {
+	vm_utils.ProcessDaemon(ExecuteName, generateConfigure, createDaemon)
 }

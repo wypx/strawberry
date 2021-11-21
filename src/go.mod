@@ -34,6 +34,8 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421 // indirect
 	github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/rs/xid v1.3.0 // indirect
+	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/sevlyar/go-daemon v0.1.5 // indirect
 	github.com/shirou/gopsutil v3.21.10+incompatible // indirect
 	github.com/templexxx/cpufeat v0.0.0-20180724012125-cef66df7f161 // indirect

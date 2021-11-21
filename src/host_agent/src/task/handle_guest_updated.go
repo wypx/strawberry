@@ -1,34 +1,34 @@
 package task
 
 import (
-	"github.com/project-nano/framework"
-	"github.com/project-nano/core/modules"
-	"log"
 	"errors"
+	"log"
+	"vm_manager/host_agent/src/modules"
+	"vm_manager/vm_utils"
 )
 
 type HandleGuestUpdatedExecutor struct {
-	Sender         framework.MessageSender
+	Sender         vm_utils.MessageSender
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *HandleGuestUpdatedExecutor)Execute(id framework.SessionID, event framework.Message,
-	incoming chan framework.Message, terminate chan bool) error {
-	instanceID, err := event.GetString(framework.ParamKeyInstance)
+func (executor *HandleGuestUpdatedExecutor) Execute(id vm_utils.SessionID, event vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) error {
+	instanceID, err := event.GetString(vm_utils.ParamKeyInstance)
 	if err != nil {
 		return err
 	}
-	if !event.IsSuccess(){
+	if !event.IsSuccess() {
 		log.Printf("[%08X] guest '%s' create fail: %s", id, instanceID, event.GetError())
 		err = errors.New(event.GetError())
 		var respChan = make(chan error)
 		executor.ResourceModule.DeallocateInstance(instanceID, err, respChan)
-		<- respChan
+		<-respChan
 		return nil
 	}
 
-	progress, err := event.GetUInt(framework.ParamKeyProgress)
-	if err != nil{
+	progress, err := event.GetUInt(vm_utils.ParamKeyProgress)
+	if err != nil {
 		return err
 	}
 
@@ -39,13 +39,13 @@ func (executor *HandleGuestUpdatedExecutor)Execute(id framework.SessionID, event
 	{
 		var respChan = make(chan modules.ResourceResult)
 		executor.ResourceModule.GetInstanceStatus(instanceID, respChan)
-		result := <- respChan
-		if result.Error != nil{
+		result := <-respChan
+		if result.Error != nil {
 			errMsg := result.Error.Error()
 			log.Printf("[%08X] fetch guest fail: %s", id, errMsg)
 			return result.Error
 		}
-		if result.Instance.Created{
+		if result.Instance.Created {
 			log.Printf("[%08X] warning: guest already created", id)
 			return nil
 		}
@@ -55,8 +55,8 @@ func (executor *HandleGuestUpdatedExecutor)Execute(id framework.SessionID, event
 	{
 		var respChan = make(chan error)
 		executor.ResourceModule.UpdateInstanceStatus(status, respChan)
-		err = <- respChan
-		if err != nil{
+		err = <-respChan
+		if err != nil {
 			log.Printf("[%08X] warning: update progress fail: %s", id, err)
 		}
 		return nil

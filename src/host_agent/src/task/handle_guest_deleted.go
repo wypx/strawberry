@@ -1,19 +1,19 @@
 package task
 
 import (
-	"github.com/project-nano/framework"
 	"log"
-	"github.com/project-nano/core/modules"
+	"vm_manager/host_agent/src/modules"
+	"vm_manager/vm_utils"
 )
 
 type HandleGuestDeletedExecutor struct {
-	Sender         framework.MessageSender
+	Sender         vm_utils.MessageSender
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *HandleGuestDeletedExecutor)Execute(id framework.SessionID, event framework.Message,
-	incoming chan framework.Message, terminate chan bool) error {
-	instanceID, err := event.GetString(framework.ParamKeyInstance)
+func (executor *HandleGuestDeletedExecutor) Execute(id vm_utils.SessionID, event vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) error {
+	instanceID, err := event.GetString(vm_utils.ParamKeyInstance)
 	if err != nil {
 		return err
 	}
@@ -21,8 +21,8 @@ func (executor *HandleGuestDeletedExecutor)Execute(id framework.SessionID, event
 		event.GetSender(), event.GetFromSession())
 	var respChan = make(chan error)
 	executor.ResourceModule.DeallocateInstance(instanceID, nil, respChan)
-	err = <- respChan
-	if err != nil{
+	err = <-respChan
+	if err != nil {
 		log.Printf("[%08X] deallocate guest fail: %s", id, err.Error())
 	}
 	return nil

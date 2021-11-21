@@ -1,27 +1,27 @@
 package task
 
 import (
-	"github.com/project-nano/framework"
-	"github.com/project-nano/core/modules"
 	"log"
+	"vm_manager/host_agent/src/modules"
+	"vm_manager/vm_utils"
 )
 
 type GetGuestConfigExecutor struct {
-	Sender         framework.MessageSender
+	Sender         vm_utils.MessageSender
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *GetGuestConfigExecutor)Execute(id framework.SessionID, request framework.Message,
-	incoming chan framework.Message, terminate chan bool) error {
+func (executor *GetGuestConfigExecutor) Execute(id vm_utils.SessionID, request vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) error {
 	var err error
-	instanceID, err := request.GetString(framework.ParamKeyInstance)
-	if err != nil{
+	instanceID, err := request.GetString(vm_utils.ParamKeyInstance)
+	if err != nil {
 		return err
 	}
 	//log.Printf("[%08X] request get guest '%s' config from %s.[%08X]", id, instanceID,
 	//	request.GetSender(), request.GetFromSession())
 
-	resp, _ := framework.CreateJsonMessage(framework.QueryGuestResponse)
+	resp, _ := vm_utils.CreateJsonMessage(vm_utils.QueryGuestResponse)
 	resp.SetToSession(request.GetFromSession())
 	resp.SetFromSession(id)
 	resp.SetSuccess(false)
@@ -30,8 +30,8 @@ func (executor *GetGuestConfigExecutor)Execute(id framework.SessionID, request f
 	{
 		var respChan = make(chan modules.ResourceResult)
 		executor.ResourceModule.GetInstanceStatus(instanceID, respChan)
-		result := <- respChan
-		if result.Error != nil{
+		result := <-respChan
+		if result.Error != nil {
 			errMsg := result.Error.Error()
 			log.Printf("[%08X] get config fail: %s", id, errMsg)
 			resp.SetError(errMsg)

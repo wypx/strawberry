@@ -2,8 +2,9 @@ package modules
 
 import (
 	"fmt"
-	"github.com/rs/xid"
 	"time"
+
+	"github.com/rs/xid"
 )
 
 type TemplateOperatingSystem int
@@ -14,8 +15,8 @@ const (
 	TemplateOperatingSystemInvalid
 )
 
-func (value TemplateOperatingSystem) ToString() string{
-	switch value{
+func (value TemplateOperatingSystem) ToString() string {
+	switch value {
 	case TemplateOperatingSystemLinux:
 		return SystemNameLinux
 	case TemplateOperatingSystemWindows:
@@ -34,8 +35,8 @@ const (
 	TemplateDiskDriverInvalid
 )
 
-func (value TemplateDiskDriver) ToString() string{
-	switch value{
+func (value TemplateDiskDriver) ToString() string {
+	switch value {
 	case TemplateDiskDriverSCSI:
 		return DiskBusSCSI
 	case TemplateDiskDriverSATA:
@@ -56,8 +57,8 @@ const (
 	TemplateNetworkModelInvalid
 )
 
-func (value TemplateNetworkModel) ToString() string{
-	switch value{
+func (value TemplateNetworkModel) ToString() string {
+	switch value {
 	case TemplateNetworkModelVirtIO:
 		return NetworkModelVIRTIO
 	case TemplateNetworkModelE1000:
@@ -80,8 +81,8 @@ const (
 	TemplateDisplayDriverInvalid
 )
 
-func (value TemplateDisplayDriver) ToString() string{
-	switch value{
+func (value TemplateDisplayDriver) ToString() string {
+	switch value {
 	case TemplateDisplayDriverVGA:
 		return DisplayDriverVGA
 	case TemplateDisplayDriverCirrus:
@@ -105,8 +106,8 @@ const (
 	TemplateRemoteControlInvalid
 )
 
-func (value TemplateRemoteControl) ToString() string{
-	switch value{
+func (value TemplateRemoteControl) ToString() string {
+	switch value {
 	case TemplateRemoteControlVNC:
 		return RemoteControlVNC
 	case TemplateRemoteControlSPICE:
@@ -124,8 +125,8 @@ const (
 	TemplateUSBModelInvalid
 )
 
-func (value TemplateUSBModel) ToString() string{
-	switch value{
+func (value TemplateUSBModel) ToString() string {
+	switch value {
 	case TemplateUSBModelNone:
 		return USBModelNone
 	case TemplateUSBModelXHCI:
@@ -144,8 +145,8 @@ const (
 	TemplateTabletModelInvalid
 )
 
-func (value TemplateTabletModel) ToString() string{
-	switch value{
+func (value TemplateTabletModel) ToString() string {
+	switch value {
 	case TemplateTabletModelNone:
 		return TabletBusNone
 	case TemplateTabletModelUSB:
@@ -170,7 +171,7 @@ type SystemTemplateConfig struct {
 }
 
 type SystemTemplate struct {
-	ID           string `json:"id"`
+	ID string `json:"id"`
 	SystemTemplateConfig
 	CreatedTime  string `json:"created_time"`
 	ModifiedTime string `json:"modified_time"`
@@ -210,7 +211,7 @@ func CreateSystemTemplate(config SystemTemplateConfig) SystemTemplate {
 	return t
 }
 
-func (config SystemTemplateConfig) ToOptions() (options []uint64, err error){
+func (config SystemTemplateConfig) ToOptions() (options []uint64, err error) {
 	switch config.OperatingSystem {
 	case SystemNameLinux:
 		options = append(options, TemplateOperatingSystemLinux)

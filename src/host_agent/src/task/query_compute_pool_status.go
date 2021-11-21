@@ -1,29 +1,29 @@
 package task
 
 import (
-	"github.com/project-nano/framework"
-	"github.com/project-nano/core/modules"
 	"log"
+	"vm_manager/host_agent/src/modules"
+	"vm_manager/vm_utils"
 )
 
 type QueryComputePoolStatusExecutor struct {
-	Sender         framework.MessageSender
+	Sender         vm_utils.MessageSender
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *QueryComputePoolStatusExecutor)Execute(id framework.SessionID, request framework.Message,
-	incoming chan framework.Message, terminate chan bool) (err error) {
+func (executor *QueryComputePoolStatusExecutor) Execute(id vm_utils.SessionID, request vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) (err error) {
 
 	//log.Printf("[%08X] query compute pool status from %s.[%08X]", id, request.GetSender(), request.GetFromSession())
-	var respChan= make(chan modules.ResourceResult)
+	var respChan = make(chan modules.ResourceResult)
 
 	executor.ResourceModule.QueryComputePoolStatus(respChan)
 	result := <-respChan
 
-	resp, _ := framework.CreateJsonMessage(framework.QueryComputePoolStatusResponse)
+	resp, _ := vm_utils.CreateJsonMessage(vm_utils.QueryComputePoolStatusResponse)
 	resp.SetFromSession(id)
 	resp.SetToSession(request.GetFromSession())
-	if result.Error != nil{
+	if result.Error != nil {
 		err = result.Error
 		resp.SetSuccess(false)
 		resp.SetError(err.Error())
@@ -35,9 +35,9 @@ func (executor *QueryComputePoolStatusExecutor)Execute(id framework.SessionID, r
 	var enabled, cells, instance, usage, cores, memory, disk, speed []uint64
 	for _, s := range result.ComputePoolList {
 		name = append(name, s.Name)
-		if s.Enabled{
+		if s.Enabled {
 			enabled = append(enabled, 1)
-		}else{
+		} else {
 			enabled = append(enabled, 0)
 		}
 		cells = append(cells, s.OfflineCells)
@@ -46,7 +46,7 @@ func (executor *QueryComputePoolStatusExecutor)Execute(id framework.SessionID, r
 		instance = append(instance, s.RunningInstances)
 		instance = append(instance, s.LostInstances)
 		instance = append(instance, s.MigratingInstances)
-		usage = append(usage, uint64(s.CpuUsage))//todo: tripped decimal
+		usage = append(usage, uint64(s.CpuUsage)) //todo: tripped decimal
 		cores = append(cores, uint64(s.Cores))
 		memory = append(memory, s.MemoryAvailable)
 		memory = append(memory, s.Memory)
@@ -59,16 +59,15 @@ func (executor *QueryComputePoolStatusExecutor)Execute(id framework.SessionID, r
 	}
 
 	//assemble
-	resp.SetStringArray(framework.ParamKeyName, name)
-	resp.SetUIntArray(framework.ParamKeyEnable, enabled)
-	resp.SetUIntArray(framework.ParamKeyCell, cells)
-	resp.SetUIntArray(framework.ParamKeyInstance, instance)
-	resp.SetUIntArray(framework.ParamKeyUsage, usage)
-	resp.SetUIntArray(framework.ParamKeyCore, cores)
-	resp.SetUIntArray(framework.ParamKeyMemory, memory)
-	resp.SetUIntArray(framework.ParamKeyDisk, disk)
-	resp.SetUIntArray(framework.ParamKeySpeed, speed)
+	resp.SetStringArray(vm_utils.ParamKeyName, name)
+	resp.SetUIntArray(vm_utils.ParamKeyEnable, enabled)
+	resp.SetUIntArray(vm_utils.ParamKeyCell, cells)
+	resp.SetUIntArray(vm_utils.ParamKeyInstance, instance)
+	resp.SetUIntArray(vm_utils.ParamKeyUsage, usage)
+	resp.SetUIntArray(vm_utils.ParamKeyCore, cores)
+	resp.SetUIntArray(vm_utils.ParamKeyMemory, memory)
+	resp.SetUIntArray(vm_utils.ParamKeyDisk, disk)
+	resp.SetUIntArray(vm_utils.ParamKeySpeed, speed)
 	//log.Printf("[%08X] %d compute pool status available", id, len(name))
 	return executor.Sender.SendMessage(resp, request.GetSender())
 }
-

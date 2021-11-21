@@ -1,37 +1,37 @@
 package task
 
 import (
-	"github.com/project-nano/framework"
-	"github.com/project-nano/core/modules"
 	"log"
+	"vm_manager/host_agent/src/modules"
+	"vm_manager/vm_utils"
 )
 
 type DeleteComputePoolExecutor struct {
-	Sender         framework.MessageSender
+	Sender         vm_utils.MessageSender
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *DeleteComputePoolExecutor)Execute(id framework.SessionID, request framework.Message,
-	incoming chan framework.Message, terminate chan bool) error {
-	pool, err := request.GetString(framework.ParamKeyPool)
-	if err != nil{
+func (executor *DeleteComputePoolExecutor) Execute(id vm_utils.SessionID, request vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) error {
+	pool, err := request.GetString(vm_utils.ParamKeyPool)
+	if err != nil {
 		return err
 	}
 	log.Printf("[%08X] request delete compute pool '%s' from %s.[%08X]", id, pool, request.GetSender(), request.GetFromSession())
-	var respChan= make(chan error)
+	var respChan = make(chan error)
 
 	executor.ResourceModule.DeletePool(pool, respChan)
 
-	resp, _ := framework.CreateJsonMessage(framework.DeleteComputePoolResponse)
+	resp, _ := vm_utils.CreateJsonMessage(vm_utils.DeleteComputePoolResponse)
 	resp.SetSuccess(false)
 	resp.SetFromSession(id)
 	resp.SetToSession(request.GetFromSession())
 
 	err = <-respChan
-	if err != nil{
+	if err != nil {
 		resp.SetError(err.Error())
 		log.Printf("[%08X] delete compute pool fail: %s", id, err.Error())
-	}else{
+	} else {
 		resp.SetSuccess(true)
 	}
 

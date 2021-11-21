@@ -50,7 +50,7 @@ type SessionResult struct {
 type SessionManager struct {
 	sessions map[string]LoggedSession
 	commands chan sessionCMD
-	runner   *framework.SimpleRunner
+	runner   *vm_utils.SimpleRunner
 }
 
 const (
@@ -61,7 +61,7 @@ func CreateSessionManager() (manager *SessionManager, err error) {
 	manager = &SessionManager{}
 	manager.sessions = map[string]LoggedSession{}
 	manager.commands = make(chan sessionCMD, 1<<10)
-	manager.runner = framework.CreateSimpleRunner(manager.Routine)
+	manager.runner = vm_utils.CreateSimpleRunner(manager.Routine)
 	return
 }
 
@@ -73,7 +73,7 @@ func (manager *SessionManager) Stop() error{
 	return manager.runner.Stop()
 }
 
-func (manager *SessionManager) Routine(c framework.RoutineController) {
+func (manager *SessionManager) Routine(c vm_utils.RoutineController) {
 	const (
 		TimerInterval = 10 * time.Second
 	)

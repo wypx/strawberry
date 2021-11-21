@@ -1,38 +1,37 @@
 package task
 
 import (
-	"github.com/project-nano/framework"
 	"log"
-	"github.com/project-nano/core/modules"
+	"vm_manager/host_agent/src/modules"
+	"vm_manager/vm_utils"
 )
 
 type RemoveAddressRangeExecutor struct {
-	Sender         framework.MessageSender
+	Sender         vm_utils.MessageSender
 	ResourceModule modules.ResourceModule
 }
 
-
-func (executor *RemoveAddressRangeExecutor)Execute(id framework.SessionID, request framework.Message,
-	incoming chan framework.Message, terminate chan bool) (err error) {
+func (executor *RemoveAddressRangeExecutor) Execute(id vm_utils.SessionID, request vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) (err error) {
 	var poolName, rangeType, startAddress string
-	if poolName, err = request.GetString(framework.ParamKeyAddress); err != nil{
+	if poolName, err = request.GetString(vm_utils.ParamKeyAddress); err != nil {
 		return
 	}
-	if rangeType, err = request.GetString(framework.ParamKeyType); err != nil{
+	if rangeType, err = request.GetString(vm_utils.ParamKeyType); err != nil {
 		return
 	}
-	if startAddress, err = request.GetString(framework.ParamKeyStart); err != nil{
+	if startAddress, err = request.GetString(vm_utils.ParamKeyStart); err != nil {
 		return
 	}
 	var respChan = make(chan error, 1)
 	executor.ResourceModule.RemoveAddressRange(poolName, rangeType, startAddress, respChan)
-	resp, _ := framework.CreateJsonMessage(framework.RemoveAddressRangeResponse)
+	resp, _ := vm_utils.CreateJsonMessage(vm_utils.RemoveAddressRangeResponse)
 	resp.SetFromSession(id)
 	resp.SetToSession(request.GetFromSession())
 	resp.SetSuccess(false)
 
-	err = <- respChan
-	if err != nil{
+	err = <-respChan
+	if err != nil {
 		resp.SetError(err.Error())
 		log.Printf("[%08X] request remove address range from %s.[%08X] fail: %s",
 			id, request.GetSender(), request.GetFromSession(), err.Error())

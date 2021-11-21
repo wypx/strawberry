@@ -1,23 +1,23 @@
 package imageserver
 
 import (
-	"github.com/project-nano/framework"
-	"log"
 	"errors"
+	"log"
+	"vm_manager/vm_utils"
 )
 
 type DiskImageUpdateExecutor struct {
-	Sender      framework.MessageSender
+	Sender      vm_utils.MessageSender
 	ImageServer *ImageManager
 }
 
-func (executor *DiskImageUpdateExecutor)Execute(id framework.SessionID, event framework.Message,
-	incoming chan framework.Message, terminate chan bool) (err error) {
-	imageID, err := event.GetString(framework.ParamKeyImage)
-	if err != nil{
+func (executor *DiskImageUpdateExecutor) Execute(id vm_utils.SessionID, event vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) (err error) {
+	imageID, err := event.GetString(vm_utils.ParamKeyImage)
+	if err != nil {
 		return
 	}
-	if !event.IsSuccess(){
+	if !event.IsSuccess() {
 		err = errors.New(event.GetError())
 		log.Printf("[%08X] update disk image progress fail: %s", id, err.Error())
 		executor.releaseImage(id, imageID)
@@ -25,31 +25,31 @@ func (executor *DiskImageUpdateExecutor)Execute(id framework.SessionID, event fr
 	}
 	var created bool
 	var progress uint
-	if created, err = event.GetBoolean(framework.ParamKeyEnable);err != nil{
+	if created, err = event.GetBoolean(vm_utils.ParamKeyEnable); err != nil {
 		log.Printf("[%08X] parse created status from disk image updated fail: %s", id, err.Error())
 		executor.releaseImage(id, imageID)
 		return err
 	}
-	if progress, err = event.GetUInt(framework.ParamKeyProgress);err != nil{
+	if progress, err = event.GetUInt(vm_utils.ParamKeyProgress); err != nil {
 		log.Printf("[%08X] parse progress from disk image updated fail: %s", id, err.Error())
 		executor.releaseImage(id, imageID)
 		return err
 	}
-	if created{
+	if created {
 		//finished
 		var imageSize uint
-		if imageSize, err = event.GetUInt(framework.ParamKeySize); err != nil{
+		if imageSize, err = event.GetUInt(vm_utils.ParamKeySize); err != nil {
 			log.Printf("[%08X] parse image size from disk image updated fail: %s", id, err.Error())
 			executor.releaseImage(id, imageID)
 			return err
 		}
-		log.Printf("[%08X] disk image creation finished, %d MB in size", id, imageSize >> 20)
+		log.Printf("[%08X] disk image creation finished, %d MB in size", id, imageSize>>20)
 
-	}else{
+	} else {
 		var respChan = make(chan error, 1)
 		executor.ImageServer.UpdateDiskImageProgress(imageID, progress, respChan)
-		err = <- respChan
-		if err != nil{
+		err = <-respChan
+		if err != nil {
 			log.Printf("[%08X] update disk image progress fail: %s", id, err.Error())
 			return err
 		}
@@ -58,13 +58,13 @@ func (executor *DiskImageUpdateExecutor)Execute(id framework.SessionID, event fr
 	return nil
 }
 
-func (executor *DiskImageUpdateExecutor) releaseImage(id framework.SessionID, imageID string){
+func (executor *DiskImageUpdateExecutor) releaseImage(id vm_utils.SessionID, imageID string) {
 	var respChan = make(chan error, 1)
 	executor.ImageServer.DeleteDiskImage(imageID, respChan)
-	var err = <- respChan
-	if err != nil{
+	var err = <-respChan
+	if err != nil {
 		log.Printf("[%08X] delete disk image fail: %s", id, imageID)
-	}else {
+	} else {
 		log.Printf("[%08X] disk image '%s' deleted", id, imageID)
 	}
 }

@@ -1,33 +1,32 @@
 package imageserver
 
 import (
-	"github.com/project-nano/framework"
 	"log"
+	"vm_manager/vm_utils"
 )
 
 type QueryMediaImageExecutor struct {
-	Sender      framework.MessageSender
+	Sender      vm_utils.MessageSender
 	ImageServer *ImageManager
 }
 
-
-func (executor *QueryMediaImageExecutor)Execute(id framework.SessionID, request framework.Message,
-	incoming chan framework.Message, terminate chan bool) (err error) {
+func (executor *QueryMediaImageExecutor) Execute(id vm_utils.SessionID, request vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) (err error) {
 	var filterOwner, filterGroup string
-	filterOwner, _ = request.GetString(framework.ParamKeyUser)
-	filterGroup, _ = request.GetString(framework.ParamKeyGroup)
+	filterOwner, _ = request.GetString(vm_utils.ParamKeyUser)
+	filterGroup, _ = request.GetString(vm_utils.ParamKeyGroup)
 
 	var respChan = make(chan ImageResult, 1)
 	executor.ImageServer.QueryMediaImage(filterOwner, filterGroup, respChan)
 
-	var result = <- respChan
+	var result = <-respChan
 
-	resp, _ := framework.CreateJsonMessage(framework.QueryMediaImageResponse)
+	resp, _ := vm_utils.CreateJsonMessage(vm_utils.QueryMediaImageResponse)
 	resp.SetSuccess(false)
 	resp.SetFromSession(id)
 	resp.SetToSession(request.GetFromSession())
 
-	if result.Error != nil{
+	if result.Error != nil {
 		err = result.Error
 		resp.SetError(err.Error())
 		log.Printf("[%08X] query media image fail: %s", id, err.Error())
@@ -35,7 +34,7 @@ func (executor *QueryMediaImageExecutor)Execute(id framework.SessionID, request 
 	}
 
 	var name, imageID, description, tags, createTime, modifyTime []string
-	var size, tagCount[]uint64
+	var size, tagCount []uint64
 	for _, image := range result.MediaList {
 		name = append(name, image.Name)
 		imageID = append(imageID, image.ID)
@@ -43,7 +42,7 @@ func (executor *QueryMediaImageExecutor)Execute(id framework.SessionID, request 
 		size = append(size, uint64(image.Size))
 		count := uint64(len(image.Tags))
 		tagCount = append(tagCount, count)
-		for _, tag := range image.Tags{
+		for _, tag := range image.Tags {
 			tags = append(tags, tag)
 		}
 		createTime = append(createTime, image.CreateTime)
@@ -51,15 +50,15 @@ func (executor *QueryMediaImageExecutor)Execute(id framework.SessionID, request 
 	}
 
 	resp.SetSuccess(true)
-	resp.SetStringArray(framework.ParamKeyName, name)
-	resp.SetStringArray(framework.ParamKeyImage, imageID)
-	resp.SetStringArray(framework.ParamKeyDescription, description)
-	resp.SetStringArray(framework.ParamKeyTag, tags)
-	resp.SetStringArray(framework.ParamKeyCreate, createTime)
-	resp.SetStringArray(framework.ParamKeyModify, modifyTime)
+	resp.SetStringArray(vm_utils.ParamKeyName, name)
+	resp.SetStringArray(vm_utils.ParamKeyImage, imageID)
+	resp.SetStringArray(vm_utils.ParamKeyDescription, description)
+	resp.SetStringArray(vm_utils.ParamKeyTag, tags)
+	resp.SetStringArray(vm_utils.ParamKeyCreate, createTime)
+	resp.SetStringArray(vm_utils.ParamKeyModify, modifyTime)
 
-	resp.SetUIntArray(framework.ParamKeySize, size)
-	resp.SetUIntArray(framework.ParamKeyCount, tagCount)
+	resp.SetUIntArray(vm_utils.ParamKeySize, size)
+	resp.SetUIntArray(vm_utils.ParamKeyCount, tagCount)
 	//log.Printf("[%08X] query media image success, %d image(s) available", id, len(result.MediaList))
 	return executor.Sender.SendMessage(resp, request.GetSender())
 

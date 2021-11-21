@@ -46,7 +46,7 @@ type FrontEndService struct {
 	corsEnable             bool
 	webRoot                string
 	spaPage                string
-	runner                 *framework.SimpleRunner
+	runner                 *vm_utils.SimpleRunner
 }
 
 type Proxy struct {
@@ -191,7 +191,7 @@ func CreateFrontEnd(configPath, dataPath string) (service *FrontEndService, err 
 	router.NotFound = &Proxy{service}
 
 	service.frontendServer.Handler = router
-	service.runner = framework.CreateSimpleRunner(service.Routine)
+	service.runner = vm_utils.CreateSimpleRunner(service.Routine)
 
 	service.userManager, err = CreateUserManager(configPath)
 	if err != nil{
@@ -237,7 +237,7 @@ func (service *FrontEndService) Stop() error{
 	return service.runner.Stop()
 }
 
-func (service *FrontEndService) Routine(c framework.RoutineController){
+func (service *FrontEndService) Routine(c vm_utils.RoutineController){
 	log.Printf("<frontend> %s started", CurrentVersion)
 	go service.frontendServer.Serve(service.serviceListener)
 	service.channelManager.Start()

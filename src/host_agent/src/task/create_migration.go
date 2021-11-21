@@ -1,21 +1,22 @@
 package task
 
 import (
-	"github.com/project-nano/framework"
-	"github.com/project-nano/core/modules"
 	"fmt"
 	"log"
 	"time"
+	"vm_manager/host_agent/src/modules"
+	"vm_manager/vm_utils"
+
 	"github.com/pkg/errors"
 )
 
 type CreateMigrationExecutor struct {
-	Sender         framework.MessageSender
+	Sender         vm_utils.MessageSender
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *CreateMigrationExecutor) Execute(id framework.SessionID, request framework.Message,
-	incoming chan framework.Message, terminate chan bool) (err error) {
+func (executor *CreateMigrationExecutor) Execute(id vm_utils.SessionID, request vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) (err error) {
 	var poolName, sourceCell, targetCell string
 	var instances []string
 	{
@@ -27,13 +28,13 @@ func (executor *CreateMigrationExecutor) Execute(id framework.SessionID, request
 			ValidCellCount   = 2
 		)
 		var pools, cells []string
-		if pools, err = request.GetStringArray(framework.ParamKeyPool); err != nil {
+		if pools, err = request.GetStringArray(vm_utils.ParamKeyPool); err != nil {
 			return
 		}
-		if cells, err = request.GetStringArray(framework.ParamKeyCell); err != nil {
+		if cells, err = request.GetStringArray(vm_utils.ParamKeyCell); err != nil {
 			return
 		}
-		if instances, err = request.GetStringArray(framework.ParamKeyInstance); err != nil {
+		if instances, err = request.GetStringArray(vm_utils.ParamKeyInstance); err != nil {
 			return
 		}
 		if ValidPoolCount != len(pools) {
@@ -59,7 +60,7 @@ func (executor *CreateMigrationExecutor) Execute(id framework.SessionID, request
 	var migrationID string
 	var params = modules.MigrationParameter{SourcePool: poolName, SourceCell: sourceCell, TargetPool: poolName, TargetCell: targetCell, Instances: instances}
 	{
-		resp, _ := framework.CreateJsonMessage(framework.CreateMigrationResponse)
+		resp, _ := vm_utils.CreateJsonMessage(vm_utils.CreateMigrationResponse)
 		resp.SetSuccess(false)
 		resp.SetFromSession(id)
 		resp.SetToSession(request.GetFromSession())
@@ -77,19 +78,19 @@ func (executor *CreateMigrationExecutor) Execute(id framework.SessionID, request
 		migrationID = result.Migration.ID
 		instances = result.Migration.Instances
 		resp.SetSuccess(true)
-		resp.SetString(framework.ParamKeyMigration, migrationID)
+		resp.SetString(vm_utils.ParamKeyMigration, migrationID)
 		log.Printf("[%08X] migration '%s' allocated", id, migrationID)
 		if err = executor.Sender.SendMessage(resp, request.GetSender()); err != nil {
 			log.Printf("[%08X] warning: notify migration id fail: %s", id, err.Error())
 		}
 	}
-	var targetSession framework.SessionID
+	var targetSession vm_utils.SessionID
 	{
 		//attach instance
-		attach, _ := framework.CreateJsonMessage(framework.AttachInstanceRequest)
+		attach, _ := vm_utils.CreateJsonMessage(vm_utils.AttachInstanceRequest)
 		attach.SetFromSession(id)
-		attach.SetBoolean(framework.ParamKeyImmediate, false)
-		attach.SetStringArray(framework.ParamKeyInstance, instances)
+		attach.SetBoolean(vm_utils.ParamKeyImmediate, false)
+		attach.SetStringArray(vm_utils.ParamKeyInstance, instances)
 		if err = executor.Sender.SendMessage(attach, targetCell); err != nil {
 			log.Printf("[%08X] request attach instance fail: %s", id, err.Error())
 			executor.releaseMigration(id, migrationID, err)
@@ -115,9 +116,9 @@ func (executor *CreateMigrationExecutor) Execute(id framework.SessionID, request
 	}
 	{
 		//detach
-		detach, _ := framework.CreateJsonMessage(framework.DetachInstanceRequest)
+		detach, _ := vm_utils.CreateJsonMessage(vm_utils.DetachInstanceRequest)
 		detach.SetFromSession(id)
-		detach.SetStringArray(framework.ParamKeyInstance, instances)
+		detach.SetStringArray(vm_utils.ParamKeyInstance, instances)
 		if err = executor.Sender.SendMessage(detach, sourceCell); err != nil {
 			log.Printf("[%08X] request detach instance fail: %s", id, err.Error())
 			executor.releaseMigration(id, migrationID, err)
@@ -142,11 +143,11 @@ func (executor *CreateMigrationExecutor) Execute(id framework.SessionID, request
 	}
 	{
 		//migrate
-		migrate, _ := framework.CreateJsonMessage(framework.MigrateInstanceRequest)
+		migrate, _ := vm_utils.CreateJsonMessage(vm_utils.MigrateInstanceRequest)
 		migrate.SetFromSession(id)
 		migrate.SetToSession(targetSession)
-		migrate.SetString(framework.ParamKeyMigration, migrationID)
-		migrate.SetStringArray(framework.ParamKeyInstance, instances)
+		migrate.SetString(vm_utils.ParamKeyMigration, migrationID)
+		migrate.SetStringArray(vm_utils.ParamKeyInstance, instances)
 		if err = executor.Sender.SendMessage(migrate, targetCell); err != nil {
 			log.Printf("[%08X] warning: notify migrate fail: %s", id, err.Error())
 			executor.releaseMigration(id, migrationID, err)
@@ -157,13 +158,13 @@ func (executor *CreateMigrationExecutor) Execute(id framework.SessionID, request
 	return nil
 }
 
-func (executor *CreateMigrationExecutor) releaseMigration(id framework.SessionID, migration string, reason error){
+func (executor *CreateMigrationExecutor) releaseMigration(id vm_utils.SessionID, migration string, reason error) {
 	var respChan = make(chan error, 1)
 	executor.ResourceModule.CancelMigration(migration, reason, respChan)
-	var err = <- respChan
-	if err != nil{
+	var err = <-respChan
+	if err != nil {
 		log.Printf("[%08X] warning: release migration fail: %s", id, migration)
-	}else{
+	} else {
 		log.Printf("[%08X] migration %s released", id, migration)
 	}
 }

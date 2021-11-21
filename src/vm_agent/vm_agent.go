@@ -91,13 +91,16 @@ func generateConfigure(workingPath string) (err error) {
 		fmt.Println("No configures available, following instructions to generate a new one.")
 
 		var config = DomainConfig{}
-		if config.Domain, err = VmUtils.InputString("Group Domain Name", VmUtilsNetwork.DefaultDomain); err != nil {
+		if config.Domain, err = VmUtils.InputString("Group Domain Name",
+			VmUtilsNetwork.DefaultDomain); err != nil {
 			return
 		}
-		if config.GroupAddress, err = VmUtils.InputString("Group MultiCast Address", VmUtilsNetwork.DefaultMulticastAddress); err != nil {
+		if config.GroupAddress, err = VmUtils.InputString("Group MultiCast Address",
+			VmUtilsNetwork.DefaultMulticastAddress); err != nil {
 			return
 		}
-		if config.GroupPort, err = VmUtils.InputInteger("Group MultiCast Port", VmUtilsNetwork.DefaultMulticastPort); err != nil {
+		if config.GroupPort, err = VmUtils.InputInteger("Group MultiCast Port",
+			VmUtilsNetwork.DefaultMulticastPort); err != nil {
 			return
 		}
 		//write

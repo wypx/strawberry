@@ -1,26 +1,26 @@
 package task
 
 import (
-	"log"
-	"github.com/project-nano/framework"
-	"github.com/project-nano/core/modules"
 	"fmt"
+	"log"
 	"time"
+	"vm_manager/host_agent/src/modules"
+	"vm_manager/vm_utils"
 )
 
 type ShrinkGuestDiskExecutor struct {
-	Sender         framework.MessageSender
+	Sender         vm_utils.MessageSender
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *ShrinkGuestDiskExecutor)Execute(id framework.SessionID, request framework.Message,
-	incoming chan framework.Message, terminate chan bool) error {
-	guestID, err := request.GetString(framework.ParamKeyGuest)
-	if err != nil{
+func (executor *ShrinkGuestDiskExecutor) Execute(id vm_utils.SessionID, request vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) error {
+	guestID, err := request.GetString(vm_utils.ParamKeyGuest)
+	if err != nil {
 		return err
 	}
-	index, err := request.GetUInt(framework.ParamKeyDisk)
-	if err != nil{
+	index, err := request.GetUInt(vm_utils.ParamKeyDisk)
+	if err != nil {
 		return err
 	}
 	var diskIndex = int(index)
@@ -29,21 +29,21 @@ func (executor *ShrinkGuestDiskExecutor)Execute(id framework.SessionID, request 
 		request.GetSender(), request.GetFromSession())
 
 	var ins modules.InstanceStatus
-	resp, _ := framework.CreateJsonMessage(framework.ShrinkDiskResponse)
+	resp, _ := vm_utils.CreateJsonMessage(vm_utils.ShrinkDiskResponse)
 	resp.SetToSession(request.GetFromSession())
 	resp.SetFromSession(id)
 	resp.SetSuccess(false)
 	{
 		var respChan = make(chan modules.ResourceResult)
 		executor.ResourceModule.GetInstanceStatus(guestID, respChan)
-		result := <- respChan
-		if result.Error != nil{
+		result := <-respChan
+		if result.Error != nil {
 			log.Printf("[%08X] fetch instance fail: %s", id, result.Error.Error())
 			resp.SetError(result.Error.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
 		ins = result.Instance
-		if diskIndex >= len(ins.Disks){
+		if diskIndex >= len(ins.Disks) {
 			err = fmt.Errorf("invalid disk index %d", diskIndex)
 			log.Printf("[%08X] %s", id, err.Error())
 			resp.SetError(err.Error())
@@ -52,28 +52,28 @@ func (executor *ShrinkGuestDiskExecutor)Execute(id framework.SessionID, request 
 	}
 	{
 		//request delete
-		forward, _ := framework.CreateJsonMessage(framework.ShrinkDiskRequest)
+		forward, _ := vm_utils.CreateJsonMessage(vm_utils.ShrinkDiskRequest)
 		forward.SetFromSession(id)
-		forward.SetString(framework.ParamKeyGuest, guestID)
-		forward.SetUInt(framework.ParamKeyDisk, index)
-		if err = executor.Sender.SendMessage(forward, ins.Cell); err != nil{
+		forward.SetString(vm_utils.ParamKeyGuest, guestID)
+		forward.SetUInt(vm_utils.ParamKeyDisk, index)
+		if err = executor.Sender.SendMessage(forward, ins.Cell); err != nil {
 			log.Printf("[%08X] forward shrink disk to cell '%s' fail: %s", id, ins.Cell, err.Error())
 			resp.SetError(err.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
 		timer := time.NewTimer(modules.DefaultOperateTimeout)
-		select{
-		case cellResp := <- incoming:
-			if cellResp.IsSuccess(){
+		select {
+		case cellResp := <-incoming:
+			if cellResp.IsSuccess() {
 				log.Printf("[%08X] shrink disk success", id)
-			}else{
+			} else {
 				log.Printf("[%08X] shrink disk fail: %s", id, cellResp.GetError())
 			}
 			cellResp.SetFromSession(id)
 			cellResp.SetToSession(request.GetFromSession())
 			//forward
 			return executor.Sender.SendMessage(cellResp, request.GetSender())
-		case <- timer.C:
+		case <-timer.C:
 			//timeout
 			log.Printf("[%08X] wait shrink disk response timeout", id)
 			resp.SetError("request timeout")

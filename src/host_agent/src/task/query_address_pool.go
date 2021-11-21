@@ -1,28 +1,27 @@
 package task
 
 import (
-	"github.com/project-nano/framework"
-	"github.com/project-nano/core/modules"
 	"log"
+	"vm_manager/host_agent/src/modules"
+	"vm_manager/vm_utils"
 )
 
 type QueryAddressPoolExecutor struct {
-	Sender         framework.MessageSender
+	Sender         vm_utils.MessageSender
 	ResourceModule modules.ResourceModule
 }
 
-
-func (executor *QueryAddressPoolExecutor)Execute(id framework.SessionID, request framework.Message,
-	incoming chan framework.Message, terminate chan bool) (err error) {
+func (executor *QueryAddressPoolExecutor) Execute(id vm_utils.SessionID, request vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) (err error) {
 	var respChan = make(chan modules.ResourceResult, 1)
 	executor.ResourceModule.QueryAddressPool(respChan)
-	resp, _ := framework.CreateJsonMessage(framework.QueryAddressPoolResponse)
+	resp, _ := vm_utils.CreateJsonMessage(vm_utils.QueryAddressPoolResponse)
 	resp.SetFromSession(id)
 	resp.SetToSession(request.GetFromSession())
 	resp.SetSuccess(false)
 
-	var result = <- respChan
-	if result.Error != nil{
+	var result = <-respChan
+	if result.Error != nil {
 		err = result.Error
 		resp.SetError(err.Error())
 		log.Printf("[%08X] query address pool from %s.[%08X] fail: %s",
@@ -37,7 +36,7 @@ func (executor *QueryAddressPoolExecutor)Execute(id framework.SessionID, request
 		providerArray = append(providerArray, pool.Provider)
 		var addressCount uint32 = 0
 		allocateArray = append(allocateArray, uint64(len(pool.Allocated)))
-		for _, addressRange := range pool.Ranges{
+		for _, addressRange := range pool.Ranges {
 			addressCount += addressRange.Capacity
 		}
 		addressArray = append(addressArray, uint64(addressCount))
@@ -45,15 +44,14 @@ func (executor *QueryAddressPoolExecutor)Execute(id framework.SessionID, request
 		dnsArray = append(dnsArray, pool.DNS...)
 	}
 	resp.SetSuccess(true)
-	resp.SetStringArray(framework.ParamKeyName, nameArray)
-	resp.SetStringArray(framework.ParamKeyGateway, gatewayArray)
-	resp.SetStringArray(framework.ParamKeyServer, dnsArray)
-	resp.SetStringArray(framework.ParamKeyMode, providerArray)
-	resp.SetUIntArray(framework.ParamKeyAddress, addressArray)
-	resp.SetUIntArray(framework.ParamKeyAllocate, allocateArray)
-	resp.SetUIntArray(framework.ParamKeyCount, dnsCountArray)
+	resp.SetStringArray(vm_utils.ParamKeyName, nameArray)
+	resp.SetStringArray(vm_utils.ParamKeyGateway, gatewayArray)
+	resp.SetStringArray(vm_utils.ParamKeyServer, dnsArray)
+	resp.SetStringArray(vm_utils.ParamKeyMode, providerArray)
+	resp.SetUIntArray(vm_utils.ParamKeyAddress, addressArray)
+	resp.SetUIntArray(vm_utils.ParamKeyAllocate, allocateArray)
+	resp.SetUIntArray(vm_utils.ParamKeyCount, dnsCountArray)
 	log.Printf("[%08X] reply %d address pool(s) to %s.[%08X]",
 		id, len(result.AddressPoolList), request.GetSender(), request.GetFromSession())
 	return executor.Sender.SendMessage(resp, request.GetSender())
 }
-

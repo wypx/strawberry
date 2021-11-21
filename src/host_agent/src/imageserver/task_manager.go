@@ -2,67 +2,67 @@ package imageserver
 
 import (
 	"fmt"
-	"github.com/project-nano/framework"
+	"vm_manager/vm_utils"
 )
 
 type TaskManager struct {
-	*framework.TransactionEngine
+	*vm_utils.TransactionEngine
 }
 
-func CreateTaskManager(sender framework.MessageSender, imageManager *ImageManager) (*TaskManager, error) {
-	engine, err := framework.CreateTransactionEngine()
+func CreateTaskManager(sender vm_utils.MessageSender, imageManager *ImageManager) (*TaskManager, error) {
+	engine, err := vm_utils.CreateTransactionEngine()
 	if err != nil {
 		return nil, err
 	}
 
-	var manager= TaskManager{engine}
+	var manager = TaskManager{engine}
 
-	if err = manager.RegisterExecutor(framework.QueryMediaImageRequest,
-		&QueryMediaImageExecutor{sender, imageManager}); err != nil{
-			return nil, err
-	}
-	if err = manager.RegisterExecutor(framework.GetMediaImageRequest,
-		&GetMediaImageExecutor{sender, imageManager}); err != nil{
+	if err = manager.RegisterExecutor(vm_utils.QueryMediaImageRequest,
+		&QueryMediaImageExecutor{sender, imageManager}); err != nil {
 		return nil, err
 	}
-	if err = manager.RegisterExecutor(framework.CreateMediaImageRequest,
-		&CreateMediaImageExecutor{sender, imageManager}); err != nil{
+	if err = manager.RegisterExecutor(vm_utils.GetMediaImageRequest,
+		&GetMediaImageExecutor{sender, imageManager}); err != nil {
 		return nil, err
 	}
-	if err = manager.RegisterExecutor(framework.ModifyMediaImageRequest,
-		&ModifyMediaImageExecutor{sender, imageManager}); err != nil{
+	if err = manager.RegisterExecutor(vm_utils.CreateMediaImageRequest,
+		&CreateMediaImageExecutor{sender, imageManager}); err != nil {
 		return nil, err
 	}
-	if err = manager.RegisterExecutor(framework.DeleteMediaImageRequest,
-		&DeleteMediaImageExecutor{sender, imageManager}); err != nil{
+	if err = manager.RegisterExecutor(vm_utils.ModifyMediaImageRequest,
+		&ModifyMediaImageExecutor{sender, imageManager}); err != nil {
+		return nil, err
+	}
+	if err = manager.RegisterExecutor(vm_utils.DeleteMediaImageRequest,
+		&DeleteMediaImageExecutor{sender, imageManager}); err != nil {
 		return nil, err
 	}
 
-	if err = manager.RegisterExecutor(framework.QueryDiskImageRequest,
-		&QueryDiskImageExecutor{sender, imageManager}); err != nil{
+	if err = manager.RegisterExecutor(vm_utils.QueryDiskImageRequest,
+		&QueryDiskImageExecutor{sender, imageManager}); err != nil {
 		return nil, err
 	}
-	if err = manager.RegisterExecutor(framework.GetDiskImageRequest,
-		&GetDiskImageExecutor{sender, imageManager}); err != nil{
+	if err = manager.RegisterExecutor(vm_utils.GetDiskImageRequest,
+		&GetDiskImageExecutor{sender, imageManager}); err != nil {
 		return nil, err
 	}
-	if err = manager.RegisterExecutor(framework.CreateDiskImageRequest,
-		&CreateDiskImageExecutor{sender, imageManager}); err != nil{
+	if err = manager.RegisterExecutor(vm_utils.CreateDiskImageRequest,
+		&CreateDiskImageExecutor{sender, imageManager}); err != nil {
 		return nil, err
 	}
-	if err = manager.RegisterExecutor(framework.ModifyDiskImageRequest,
-		&ModifyDiskImageExecutor{sender, imageManager}); err != nil{
+	if err = manager.RegisterExecutor(vm_utils.ModifyDiskImageRequest,
+		&ModifyDiskImageExecutor{sender, imageManager}); err != nil {
 		return nil, err
 	}
-	if err = manager.RegisterExecutor(framework.DeleteDiskImageRequest,
-		&DeleteDiskImageExecutor{sender, imageManager}); err != nil{
+	if err = manager.RegisterExecutor(vm_utils.DeleteDiskImageRequest,
+		&DeleteDiskImageExecutor{sender, imageManager}); err != nil {
 		return nil, err
 	}
-	if err = manager.RegisterExecutor(framework.DiskImageUpdatedEvent,
-		&DiskImageUpdateExecutor{sender, imageManager}); err != nil{
+	if err = manager.RegisterExecutor(vm_utils.DiskImageUpdatedEvent,
+		&DiskImageUpdateExecutor{sender, imageManager}); err != nil {
 		return nil, err
 	}
-	if err = manager.RegisterExecutor(framework.SynchronizeDiskImageRequest,
+	if err = manager.RegisterExecutor(vm_utils.SynchronizeDiskImageRequest,
 		&SyncDiskImagesExecutor{
 			Sender:      sender,
 			ImageServer: imageManager,
@@ -70,7 +70,7 @@ func CreateTaskManager(sender framework.MessageSender, imageManager *ImageManage
 		err = fmt.Errorf("register sync disk images fail: %s", err.Error())
 		return nil, err
 	}
-	if err = manager.RegisterExecutor(framework.SynchronizeMediaImageRequest,
+	if err = manager.RegisterExecutor(vm_utils.SynchronizeMediaImageRequest,
 		&SyncMediaImagesExecutor{
 			Sender:      sender,
 			ImageServer: imageManager,

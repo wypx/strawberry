@@ -1,19 +1,19 @@
 package task
 
 import (
-	"github.com/project-nano/framework"
-	"github.com/project-nano/core/modules"
 	"log"
+	"vm_manager/host_agent/src/modules"
+	"vm_manager/vm_utils"
 )
 
 type HandleGuestStoppedExecutor struct {
-	Sender         framework.MessageSender
+	Sender         vm_utils.MessageSender
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *HandleGuestStoppedExecutor)Execute(id framework.SessionID, event framework.Message,
-	incoming chan framework.Message, terminate chan bool) error {
-	instanceID, err := event.GetString(framework.ParamKeyInstance)
+func (executor *HandleGuestStoppedExecutor) Execute(id vm_utils.SessionID, event vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) error {
+	instanceID, err := event.GetString(vm_utils.ParamKeyInstance)
 	if err != nil {
 		return err
 	}
@@ -23,8 +23,8 @@ func (executor *HandleGuestStoppedExecutor)Execute(id framework.SessionID, event
 	{
 		var respChan = make(chan modules.ResourceResult)
 		executor.ResourceModule.GetInstanceStatus(instanceID, respChan)
-		result := <- respChan
-		if result.Error != nil{
+		result := <-respChan
+		if result.Error != nil {
 			errMsg := result.Error.Error()
 			log.Printf("[%08X] fetch guest fail: %s", id, errMsg)
 			return result.Error
@@ -35,8 +35,8 @@ func (executor *HandleGuestStoppedExecutor)Execute(id framework.SessionID, event
 	{
 		var respChan = make(chan error)
 		executor.ResourceModule.UpdateInstanceStatus(status, respChan)
-		err = <- respChan
-		if err != nil{
+		err = <-respChan
+		if err != nil {
 			log.Printf("[%08X] warning: update stopped status fail: %s", id, err)
 		}
 		return nil

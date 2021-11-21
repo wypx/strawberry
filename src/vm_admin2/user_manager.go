@@ -121,7 +121,7 @@ type UserManager struct {
 	configFile string
 	nameRegex  *regexp.Regexp
 	commands   chan userCMD
-	runner     *framework.SimpleRunner
+	runner     *vm_utils.SimpleRunner
 }
 
 var ObscuredSecretError = errors.New("invalid user or password")
@@ -141,7 +141,7 @@ func CreateUserManager(configPath string)  (manager *UserManager, err error){
 	if err != nil{
 		return
 	}
-	manager.runner = framework.CreateSimpleRunner(manager.Routine)
+	manager.runner = vm_utils.CreateSimpleRunner(manager.Routine)
 	if err = manager.loadConfig(); err != nil{
 		return
 	}
@@ -155,7 +155,7 @@ func (manager *UserManager) Stop() error{
 	return manager.runner.Stop()
 }
 
-func (manager *UserManager) Routine(c framework.RoutineController){
+func (manager *UserManager) Routine(c vm_utils.RoutineController){
 	log.Println("<user> started")
 	for !c.IsStopping(){
 		select {

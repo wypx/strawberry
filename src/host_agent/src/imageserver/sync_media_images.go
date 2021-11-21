@@ -2,23 +2,23 @@ package imageserver
 
 import (
 	"fmt"
-	"github.com/project-nano/framework"
 	"log"
+	"vm_manager/vm_utils"
 )
 
 type SyncMediaImagesExecutor struct {
-	Sender      framework.MessageSender
+	Sender      vm_utils.MessageSender
 	ImageServer *ImageManager
 }
 
-func (executor *SyncMediaImagesExecutor)Execute(id framework.SessionID, request framework.Message,
-	incoming chan framework.Message, terminate chan bool) (err error) {
+func (executor *SyncMediaImagesExecutor) Execute(id vm_utils.SessionID, request vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) (err error) {
 	var owner, group string
-	if owner, err = request.GetString(framework.ParamKeyUser); err != nil {
+	if owner, err = request.GetString(vm_utils.ParamKeyUser); err != nil {
 		err = fmt.Errorf("get owner fail: %s", err.Error())
 		return err
 	}
-	if group, err = request.GetString(framework.ParamKeyGroup); err != nil {
+	if group, err = request.GetString(vm_utils.ParamKeyGroup); err != nil {
 		err = fmt.Errorf("get group fail: %s", err.Error())
 		return err
 	}
@@ -26,17 +26,17 @@ func (executor *SyncMediaImagesExecutor)Execute(id framework.SessionID, request 
 		id, request.GetSender(), request.GetFromSession())
 	var respChan = make(chan error, 1)
 	executor.ImageServer.SyncMediaImages(owner, group, respChan)
-	err = <- respChan
+	err = <-respChan
 
-	resp, _ := framework.CreateJsonMessage(framework.SynchronizeMediaImageResponse)
+	resp, _ := vm_utils.CreateJsonMessage(vm_utils.SynchronizeMediaImageResponse)
 	resp.SetSuccess(false)
 	resp.SetFromSession(id)
 	resp.SetToSession(request.GetFromSession())
 
-	if err != nil{
+	if err != nil {
 		resp.SetError(err.Error())
 		log.Printf("[%08X] sync media images fail: %s", id, err.Error())
-	}else{
+	} else {
 		log.Printf("[%08X] media images synchronized", id)
 		resp.SetSuccess(true)
 	}

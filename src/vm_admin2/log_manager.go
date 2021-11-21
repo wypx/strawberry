@@ -21,7 +21,7 @@ const (
 type LogManager struct {
 	agent    *LogAgent
 	commands chan logCommand
-	runner   *framework.SimpleRunner
+	runner   *vm_utils.SimpleRunner
 }
 
 type LogQueryCondition struct {
@@ -58,7 +58,7 @@ func CreateLogManager(dataPath string) (manager *LogManager, err error) {
 	)
 	manager = &LogManager{}
 	manager.commands = make(chan logCommand, DefaultQueueLength)
-	manager.runner = framework.CreateSimpleRunner(manager.Routine)
+	manager.runner = vm_utils.CreateSimpleRunner(manager.Routine)
 	manager.agent, err = CreateLogAgent(dataPath)
 	return
 }
@@ -71,7 +71,7 @@ func (manager *LogManager) Stop() error{
 	return manager.runner.Stop()
 }
 
-func (manager *LogManager) Routine(c framework.RoutineController){
+func (manager *LogManager) Routine(c vm_utils.RoutineController){
 	log.Println("<log> started")
 	const (
 		FlushInterval = 30 * time.Second

@@ -2,24 +2,24 @@ package task
 
 import (
 	"log"
-	"github.com/project-nano/core/modules"
-	"github.com/project-nano/framework"
+	"vm_manager/host_agent/src/modules"
+	"vm_manager/vm_utils"
 )
 
 type HandleMediaAttachedExecutor struct {
-	Sender         framework.MessageSender
+	Sender         vm_utils.MessageSender
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *HandleMediaAttachedExecutor)Execute(id framework.SessionID, event framework.Message,
-	incoming chan framework.Message, terminate chan bool) error {
-	instanceID, err := event.GetString(framework.ParamKeyInstance)
+func (executor *HandleMediaAttachedExecutor) Execute(id vm_utils.SessionID, event vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) error {
+	instanceID, err := event.GetString(vm_utils.ParamKeyInstance)
 	if err != nil {
 		return err
 	}
 
-	mediaSource, err := event.GetString(framework.ParamKeyMedia)
-	if err != nil{
+	mediaSource, err := event.GetString(vm_utils.ParamKeyMedia)
+	if err != nil {
 		return err
 	}
 
@@ -30,13 +30,13 @@ func (executor *HandleMediaAttachedExecutor)Execute(id framework.SessionID, even
 	{
 		var respChan = make(chan modules.ResourceResult)
 		executor.ResourceModule.GetInstanceStatus(instanceID, respChan)
-		result := <- respChan
-		if result.Error != nil{
+		result := <-respChan
+		if result.Error != nil {
 			errMsg := result.Error.Error()
 			log.Printf("[%08X] fetch guest fail: %s", id, errMsg)
 			return result.Error
 		}
-		if result.Instance.MediaAttached{
+		if result.Instance.MediaAttached {
 			log.Printf("[%08X] warning: media already attached", id)
 			return nil
 		}
@@ -47,8 +47,8 @@ func (executor *HandleMediaAttachedExecutor)Execute(id framework.SessionID, even
 	{
 		var respChan = make(chan error)
 		executor.ResourceModule.UpdateInstanceStatus(status, respChan)
-		err = <- respChan
-		if err != nil{
+		err = <-respChan
+		if err != nil {
 			log.Printf("[%08X] warning: update media status fail: %s", id, err)
 		}
 		return nil

@@ -3,29 +3,29 @@ package task
 import (
 	"errors"
 	"fmt"
-	"github.com/project-nano/core/modules"
-	"github.com/project-nano/framework"
 	"log"
 	"time"
+	"vm_manager/host_agent/src/modules"
+	"vm_manager/vm_utils"
 )
 
 type ChangeStoragePathsExecutor struct {
-	Sender         framework.MessageSender
+	Sender         vm_utils.MessageSender
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *ChangeStoragePathsExecutor)Execute(id framework.SessionID, request framework.Message,
-	incoming chan framework.Message, terminate chan bool) (err error) {
+func (executor *ChangeStoragePathsExecutor) Execute(id vm_utils.SessionID, request vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) (err error) {
 	var targetCell string
-	if targetCell, err = request.GetString(framework.ParamKeyCell); err != nil {
+	if targetCell, err = request.GetString(vm_utils.ParamKeyCell); err != nil {
 		err = fmt.Errorf("get target cell fail: %s", err.Error())
 		return
 	}
-	if _, err = request.GetString(framework.ParamKeyPath); err != nil {
+	if _, err = request.GetString(vm_utils.ParamKeyPath); err != nil {
 		err = fmt.Errorf("get target path fail: %s", err.Error())
 		return
 	}
-	resp, _ := framework.CreateJsonMessage(framework.ModifyCellStorageResponse)
+	resp, _ := vm_utils.CreateJsonMessage(vm_utils.ModifyCellStorageResponse)
 	resp.SetToSession(request.GetFromSession())
 	resp.SetFromSession(id)
 	resp.SetSuccess(false)
@@ -34,25 +34,25 @@ func (executor *ChangeStoragePathsExecutor)Execute(id framework.SessionID, reque
 	{
 		//redirect request
 		request.SetFromSession(id)
-		if err = executor.Sender.SendMessage(request, targetCell); err != nil{
+		if err = executor.Sender.SendMessage(request, targetCell); err != nil {
 			log.Printf("[%08X] redirect modify storage request to cell '%s' fail: %s", id, targetCell, err.Error())
 			resp.SetError(err.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
 		timer := time.NewTimer(modules.DefaultOperateTimeout)
-		select{
-		case cellResp := <- incoming:
-			if !cellResp.IsSuccess(){
+		select {
+		case cellResp := <-incoming:
+			if !cellResp.IsSuccess() {
 				err = errors.New(cellResp.GetError())
 				log.Printf("[%08X] cell change storage paths fail: %s", id, cellResp.GetError())
-			}else{
+			} else {
 				cellResp.SetSuccess(true)
 			}
 			cellResp.SetFromSession(id)
 			cellResp.SetToSession(fromSession)
 			//forward
 			return executor.Sender.SendMessage(cellResp, request.GetSender())
-		case <- timer.C:
+		case <-timer.C:
 			//timeout
 			log.Printf("[%08X] wait change response timeout", id)
 			resp.SetError("cell timeout")

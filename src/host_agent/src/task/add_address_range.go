@@ -1,39 +1,38 @@
-package virt
+package task
 
 import (
 	"log"
-
-	"github.com/project-nano/core/modules"
-	"github.com/project-nano/framework"
+	"vm_manager/host_agent/src/modules"
+	"vm_manager/vm_utils"
 )
 
 type AddAddressRangeExecutor struct {
-	Sender         framework.MessageSender
+	Sender         vm_utils.MessageSender
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *AddAddressRangeExecutor) Execute(id framework.SessionID, request framework.Message,
-	incoming chan framework.Message, terminate chan bool) (err error) {
+func (executor *AddAddressRangeExecutor) Execute(id vm_utils.SessionID, request vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) (err error) {
 	var poolName, rangeType string
-	if poolName, err = request.GetString(framework.ParamKeyAddress); err != nil {
+	if poolName, err = request.GetString(vm_utils.ParamKeyAddress); err != nil {
 		return
 	}
-	if rangeType, err = request.GetString(framework.ParamKeyType); err != nil {
+	if rangeType, err = request.GetString(vm_utils.ParamKeyType); err != nil {
 		return
 	}
 	var config modules.AddressRangeConfig
-	if config.Start, err = request.GetString(framework.ParamKeyStart); err != nil {
+	if config.Start, err = request.GetString(vm_utils.ParamKeyStart); err != nil {
 		return
 	}
-	if config.End, err = request.GetString(framework.ParamKeyEnd); err != nil {
+	if config.End, err = request.GetString(vm_utils.ParamKeyEnd); err != nil {
 		return
 	}
-	if config.Netmask, err = request.GetString(framework.ParamKeyMask); err != nil {
+	if config.Netmask, err = request.GetString(vm_utils.ParamKeyMask); err != nil {
 		return
 	}
 	var respChan = make(chan error, 1)
 	executor.ResourceModule.AddAddressRange(poolName, rangeType, config, respChan)
-	resp, _ := framework.CreateJsonMessage(framework.AddAddressRangeResponse)
+	resp, _ := vm_utils.CreateJsonMessage(vm_utils.AddAddressRangeResponse)
 	resp.SetFromSession(id)
 	resp.SetToSession(request.GetFromSession())
 	resp.SetSuccess(false)

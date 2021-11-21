@@ -2,13 +2,14 @@ package modules
 
 import (
 	"fmt"
-	"github.com/project-nano/framework"
+	"vm_manager/vm_utils"
+
 	"time"
 )
 
 const (
-	DefaultConfigPerm = 0640
-	DefaultOperateTimeout = 5*time.Second
+	DefaultConfigPerm     = 0640
+	DefaultOperateTimeout = 5 * time.Second
 )
 
 type GuestQueryCondition struct {
@@ -84,7 +85,7 @@ type InstanceStatistic struct {
 }
 
 type ZoneStatus struct {
-	Name      string
+	Name string
 	PoolStatistic
 	CellStatistic
 	InstanceStatistic
@@ -93,7 +94,7 @@ type ZoneStatus struct {
 }
 
 type ComputePoolStatus struct {
-	Name string
+	Name    string
 	Enabled bool
 	CellStatistic
 	InstanceStatistic
@@ -192,7 +193,7 @@ type MigrationStatus struct {
 }
 
 type CellStatusReport struct {
-	Name            string
+	Name string
 	ResourceUsage
 }
 
@@ -207,10 +208,10 @@ const (
 )
 
 type BatchCreateRequest struct {
-	Rule             BatchCreateNameRule
-	Prefix           string
-	Pool             string
-	Count            int
+	Rule   BatchCreateNameRule
+	Prefix string
+	Pool   string
+	Count  int
 }
 
 type BatchTaskStatus int
@@ -230,17 +231,17 @@ type CreateGuestStatus struct {
 }
 
 type DeleteGuestStatus struct {
-	Name    string
-	ID      string
-	Status  BatchTaskStatus
-	Error   string
+	Name   string
+	ID     string
+	Status BatchTaskStatus
+	Error  string
 }
 
 type StopGuestStatus struct {
-	Name    string
-	ID      string
-	Status  BatchTaskStatus
-	Error   string
+	Name   string
+	ID     string
+	Status BatchTaskStatus
+	Error  string
 }
 
 //address pool&range
@@ -295,7 +296,7 @@ const (
 )
 
 const (
-	PolicyRuleProtocolIndexTCP  = iota
+	PolicyRuleProtocolIndexTCP = iota
 	PolicyRuleProtocolIndexUDP
 	PolicyRuleProtocolIndexICMP
 	PolicyRuleProtocolIndexInvalid
@@ -433,7 +434,7 @@ type ResourceModule interface {
 	SetBatchCreateGuestStart(batchID, guestName, guestID string, respChan chan error)
 	SetBatchCreateGuestFail(batchID, guestName string, err error, respChan chan error)
 	GetBatchCreateGuestStatus(batchID string, respChan chan ResourceResult)
-	
+
 	StartBatchDeleteGuest(id []string, respChan chan ResourceResult)
 	SetBatchDeleteGuestSuccess(batchID, guestID string, respChan chan error)
 	SetBatchDeleteGuestFail(batchID, guestID string, err error, respChan chan error)
@@ -464,27 +465,27 @@ type ResourceModule interface {
 	MoveSecurityPolicyRule(groupID string, index int, up bool, respChan chan error)
 }
 
-func (report *CellStatusReport) FromMessage(msg framework.Message) (err error) {
+func (report *CellStatusReport) FromMessage(msg vm_utils.Message) (err error) {
 	report.Name = msg.GetSender()
-	if report.Cores, err = msg.GetUInt(framework.ParamKeyCore); err != nil {
+	if report.Cores, err = msg.GetUInt(vm_utils.ParamKeyCore); err != nil {
 		return err
 	}
-	if report.CpuUsage, err = msg.GetFloat(framework.ParamKeyUsage); err != nil {
+	if report.CpuUsage, err = msg.GetFloat(vm_utils.ParamKeyUsage); err != nil {
 		return err
 	}
-	memory, err := msg.GetUIntArray(framework.ParamKeyMemory)
+	memory, err := msg.GetUIntArray(vm_utils.ParamKeyMemory)
 	if err != nil {
 		return err
 	}
-	disk, err := msg.GetUIntArray(framework.ParamKeyDisk)
+	disk, err := msg.GetUIntArray(vm_utils.ParamKeyDisk)
 	if err != nil {
 		return err
 	}
-	io, err := msg.GetUIntArray(framework.ParamKeyIO)
+	io, err := msg.GetUIntArray(vm_utils.ParamKeyIO)
 	if err != nil {
 		return err
 	}
-	speed, err := msg.GetUIntArray(framework.ParamKeySpeed)
+	speed, err := msg.GetUIntArray(vm_utils.ParamKeySpeed)
 	if err != nil {
 		return err
 	}
@@ -519,63 +520,63 @@ func (report *CellStatusReport) FromMessage(msg framework.Message) (err error) {
 	return nil
 }
 
-func CellsToMessage(message framework.Message, cells []ComputeCellInfo){
+func CellsToMessage(message vm_utils.Message, cells []ComputeCellInfo) {
 	var name, address []string
 	var enabled, alive []uint64
-	for _, cell := range cells{
+	for _, cell := range cells {
 		name = append(name, cell.Name)
 		address = append(address, cell.Address)
-		if cell.Enabled{
+		if cell.Enabled {
 			enabled = append(enabled, 1)
-		}else{
+		} else {
 			enabled = append(enabled, 0)
 		}
-		if cell.Alive{
+		if cell.Alive {
 			alive = append(alive, 1)
-		}else{
+		} else {
 			alive = append(alive, 0)
 		}
 	}
-	message.SetStringArray(framework.ParamKeyName, name)
-	message.SetStringArray(framework.ParamKeyAddress, address)
-	message.SetUIntArray(framework.ParamKeyEnable, enabled)
-	message.SetUIntArray(framework.ParamKeyStatus, alive)
+	message.SetStringArray(vm_utils.ParamKeyName, name)
+	message.SetStringArray(vm_utils.ParamKeyAddress, address)
+	message.SetUIntArray(vm_utils.ParamKeyEnable, enabled)
+	message.SetUIntArray(vm_utils.ParamKeyStatus, alive)
 }
 
-func CellsFromMessage(message framework.Message) (cells []ComputeCellInfo, err error){
+func CellsFromMessage(message vm_utils.Message) (cells []ComputeCellInfo, err error) {
 	cells = make([]ComputeCellInfo, 0)
 
-	name, err := message.GetStringArray(framework.ParamKeyName)
-	if err != nil{
+	name, err := message.GetStringArray(vm_utils.ParamKeyName)
+	if err != nil {
 		return
 	}
-	addresses, err := message.GetStringArray(framework.ParamKeyAddress)
-	if err != nil{
+	addresses, err := message.GetStringArray(vm_utils.ParamKeyAddress)
+	if err != nil {
 		return
 	}
-	enabled, err := message.GetUIntArray(framework.ParamKeyEnable)
-	if err != nil{
+	enabled, err := message.GetUIntArray(vm_utils.ParamKeyEnable)
+	if err != nil {
 		return
 	}
-	alive, err := message.GetUIntArray(framework.ParamKeyStatus)
-	if err != nil{
+	alive, err := message.GetUIntArray(vm_utils.ParamKeyStatus)
+	if err != nil {
 		return
 	}
 	var count = len(name)
-	if len(addresses) != count{
+	if len(addresses) != count {
 		err = fmt.Errorf("unexpected address count %d / %d", len(addresses), count)
 		return
 	}
-	if len(enabled) != count{
+	if len(enabled) != count {
 		err = fmt.Errorf("unexpected enabled count %d / %d", len(enabled), count)
 		return
 	}
-	if len(alive) != count{
+	if len(alive) != count {
 		err = fmt.Errorf("unexpected alive count %d / %d", len(alive), count)
 		return
 	}
-	for i := 0; i < count; i++{
-		var cell = ComputeCellInfo{Name:name[i], Address:addresses[i]}
+	for i := 0; i < count; i++ {
+		var cell = ComputeCellInfo{Name: name[i], Address: addresses[i]}
 		cell.Enabled = 1 == enabled[i]
 		cell.Alive = 1 == alive[i]
 		cells = append(cells, cell)

@@ -2,26 +2,26 @@ package task
 
 import (
 	"fmt"
-	"github.com/project-nano/core/modules"
-	"github.com/project-nano/framework"
 	"log"
 	"time"
+	"vm_manager/host_agent/src/modules"
+	"vm_manager/vm_utils"
 )
 
 type AddGuestSecurityRuleExecutor struct {
-	Sender         framework.MessageSender
+	Sender         vm_utils.MessageSender
 	ResourceModule modules.ResourceModule
 }
 
-func (executor *AddGuestSecurityRuleExecutor)Execute(id framework.SessionID, request framework.Message,
-	incoming chan framework.Message, terminate chan bool) (err error) {
+func (executor *AddGuestSecurityRuleExecutor) Execute(id vm_utils.SessionID, request vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) (err error) {
 	var instanceID string
-	if instanceID, err = request.GetString(framework.ParamKeyInstance);err != nil{
+	if instanceID, err = request.GetString(vm_utils.ParamKeyInstance); err != nil {
 		err = fmt.Errorf("get instance ID fail: %s", err.Error())
 		return
 	}
 	var instance modules.InstanceStatus
-	resp, _ := framework.CreateJsonMessage(framework.AddGuestRuleResponse)
+	resp, _ := vm_utils.CreateJsonMessage(vm_utils.AddGuestRuleResponse)
 	resp.SetToSession(request.GetFromSession())
 	resp.SetFromSession(id)
 	resp.SetTransactionID(request.GetTransactionID())
@@ -29,8 +29,8 @@ func (executor *AddGuestSecurityRuleExecutor)Execute(id framework.SessionID, req
 	{
 		var respChan = make(chan modules.ResourceResult, 1)
 		executor.ResourceModule.GetInstanceStatus(instanceID, respChan)
-		var result = <- respChan
-		if result.Error != nil{
+		var result = <-respChan
+		if result.Error != nil {
 			err = result.Error
 			log.Printf("[%08X] get instance '%s' for add security rule fail: %s",
 				id, instanceID, err.Error())
@@ -41,19 +41,19 @@ func (executor *AddGuestSecurityRuleExecutor)Execute(id framework.SessionID, req
 	}
 	{
 		//forward request
-		var forward = framework.CloneJsonMessage(request)
+		var forward = vm_utils.CloneJsonMessage(request)
 		forward.SetFromSession(id)
-		if err = executor.Sender.SendMessage(forward, instance.Cell); err != nil{
+		if err = executor.Sender.SendMessage(forward, instance.Cell); err != nil {
 			log.Printf("[%08X] forward add security rule to cell '%s' fail: %s", id, instance.Cell, err.Error())
 			resp.SetError(err.Error())
 			return executor.Sender.SendMessage(resp, request.GetSender())
 		}
 		timer := time.NewTimer(modules.DefaultOperateTimeout)
-		select{
-		case cellResp := <- incoming:
-			if cellResp.IsSuccess(){
+		select {
+		case cellResp := <-incoming:
+			if cellResp.IsSuccess() {
 				log.Printf("[%08X] new security rule of instance '%s' added", id, instance.Name)
-			}else{
+			} else {
 				log.Printf("[%08X] cell add security rule fail: %s", id, cellResp.GetError())
 			}
 			cellResp.SetFromSession(id)
@@ -61,7 +61,7 @@ func (executor *AddGuestSecurityRuleExecutor)Execute(id framework.SessionID, req
 			cellResp.SetTransactionID(request.GetTransactionID())
 			//forward
 			return executor.Sender.SendMessage(cellResp, request.GetSender())
-		case <- timer.C:
+		case <-timer.C:
 			//timeout
 			log.Printf("[%08X] wait add security rule response timeout", id)
 			resp.SetError("cell timeout")

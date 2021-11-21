@@ -1,45 +1,44 @@
 package task
 
 import (
-	"github.com/project-nano/framework"
-	"github.com/project-nano/core/modules"
 	"log"
+	"vm_manager/host_agent/src/modules"
+	"vm_manager/vm_utils"
 )
 
 type GetComputePoolExecutor struct {
-	Sender         framework.MessageSender
+	Sender         vm_utils.MessageSender
 	ResourceModule modules.ResourceModule
 }
 
-
-func (executor *GetComputePoolExecutor)Execute(id framework.SessionID, request framework.Message,
-	incoming chan framework.Message, terminate chan bool) (err error){
-	poolName, err := request.GetString(framework.ParamKeyPool)
-	if err != nil{
+func (executor *GetComputePoolExecutor) Execute(id vm_utils.SessionID, request vm_utils.Message,
+	incoming chan vm_utils.Message, terminate chan bool) (err error) {
+	poolName, err := request.GetString(vm_utils.ParamKeyPool)
+	if err != nil {
 		return
 	}
 	log.Printf("[%08X] get compute pool '%s' from %s.[%08X]", id, poolName, request.GetSender(), request.GetFromSession())
 	var respChan = make(chan modules.ResourceResult)
 	executor.ResourceModule.GetComputePool(poolName, respChan)
-	result := <- respChan
-	resp, _ := framework.CreateJsonMessage(framework.GetComputePoolResponse)
+	result := <-respChan
+	resp, _ := vm_utils.CreateJsonMessage(vm_utils.GetComputePoolResponse)
 	resp.SetSuccess(false)
 	resp.SetFromSession(id)
 	resp.SetToSession(request.GetFromSession())
 
-	if result.Error != nil{
+	if result.Error != nil {
 		err = result.Error
 		resp.SetError(err.Error())
 		log.Printf("[%08X] get compute pool fail: %s", id, err.Error())
 		return executor.Sender.SendMessage(resp, request.GetSender())
 	}
 	var poolInfo = result.ComputePoolConfig
-	resp.SetString(framework.ParamKeyName, poolInfo.Name)
-	resp.SetBoolean(framework.ParamKeyEnable, poolInfo.Enabled)
-	resp.SetUInt(framework.ParamKeyCell, uint(poolInfo.CellCount))
-	resp.SetString(framework.ParamKeyNetwork, poolInfo.Network)
-	resp.SetString(framework.ParamKeyStorage, poolInfo.Storage)
-	resp.SetBoolean(framework.ParamKeyOption, poolInfo.Failover)
+	resp.SetString(vm_utils.ParamKeyName, poolInfo.Name)
+	resp.SetBoolean(vm_utils.ParamKeyEnable, poolInfo.Enabled)
+	resp.SetUInt(vm_utils.ParamKeyCell, uint(poolInfo.CellCount))
+	resp.SetString(vm_utils.ParamKeyNetwork, poolInfo.Network)
+	resp.SetString(vm_utils.ParamKeyStorage, poolInfo.Storage)
+	resp.SetBoolean(vm_utils.ParamKeyOption, poolInfo.Failover)
 	resp.SetSuccess(true)
 	return executor.Sender.SendMessage(resp, request.GetSender())
 }
