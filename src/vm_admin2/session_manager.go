@@ -1,11 +1,13 @@
-package main
+package vm_admin2
 
 import (
-	"github.com/project-nano/framework"
-	"log"
+	"vm_manager/vm_utils"
+
 	"fmt"
+	"log"
 	"time"
-	"github.com/satori/go.uuid"
+
+	uuid "github.com/satori/go.uuid"
 )
 
 type LoggedSession struct {
@@ -65,11 +67,11 @@ func CreateSessionManager() (manager *SessionManager, err error) {
 	return
 }
 
-func (manager *SessionManager) Start() error{
+func (manager *SessionManager) Start() error {
 	return manager.runner.Start()
 }
 
-func (manager *SessionManager) Stop() error{
+func (manager *SessionManager) Stop() error {
 	return manager.runner.Stop()
 }
 
@@ -94,7 +96,7 @@ func (manager *SessionManager) Routine(c vm_utils.RoutineController) {
 }
 
 func (manager *SessionManager) AllocateSession(user, group, nonce, address string, menu []string, resp chan SessionResult) {
-	manager.commands <- sessionCMD{Type: cmdAllocateSession, User: user, Group:group, Nonce: nonce, Address: address, Menu: menu, ResultChan: resp}
+	manager.commands <- sessionCMD{Type: cmdAllocateSession, User: user, Group: group, Nonce: nonce, Address: address, Menu: menu, ResultChan: resp}
 }
 
 func (manager *SessionManager) UpdateSession(session string, resp chan error) {
@@ -124,7 +126,7 @@ func (manager *SessionManager) handleCommand(cmd sessionCMD) {
 		log.Printf("<session> unsupport command type %d", cmd.Type)
 		return
 	}
-	if err != nil{
+	if err != nil {
 		log.Printf("<session> handle command type %d fail: %s", cmd.Type, err.Error())
 	}
 }
@@ -142,14 +144,14 @@ func (manager *SessionManager) handleAllocateSession(user, group, nonce, address
 	session.Timeout = int(DefaultSessionTimeout / time.Second)
 	session.Expire = time.Now().Add(DefaultSessionTimeout)
 	manager.sessions[session.ID] = session
-	resp <- SessionResult{Session:session}
+	resp <- SessionResult{Session: session}
 	log.Printf("<session> new session '%s' allocated with user '%s.%s', remote address %s", session.ID, group, user, address)
 	return nil
 }
 
 func (manager *SessionManager) handleUpdateSession(sessionID string, resp chan error) (err error) {
 	session, exists := manager.sessions[sessionID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid session '%s'", sessionID)
 		resp <- err
 		return err
@@ -162,34 +164,34 @@ func (manager *SessionManager) handleUpdateSession(sessionID string, resp chan e
 
 func (manager *SessionManager) handleGetSession(sessionID string, resp chan SessionResult) (err error) {
 	session, exists := manager.sessions[sessionID]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid session '%s'", sessionID)
-		resp <- SessionResult{Error:err}
+		resp <- SessionResult{Error: err}
 		return err
 	}
-	resp <- SessionResult{Session:session}
+	resp <- SessionResult{Session: session}
 	return nil
 }
 
 func (manager *SessionManager) handleQuerySessions(resp chan SessionResult) (err error) {
 	var result = make([]LoggedSession, 0)
-	for _, session := range manager.sessions{
+	for _, session := range manager.sessions {
 		result = append(result, session)
 	}
-	resp <- SessionResult{SessionList:result}
+	resp <- SessionResult{SessionList: result}
 	return nil
 }
 
-func (manager *SessionManager) checkTimeout(){
+func (manager *SessionManager) checkTimeout() {
 	var now = time.Now()
 	var timeoutList []string
-	for id, session := range manager.sessions{
-		if session.Expire.Before(now){
+	for id, session := range manager.sessions {
+		if session.Expire.Before(now) {
 			timeoutList = append(timeoutList, id)
 		}
 	}
-	for _, id := range timeoutList{
-		if _, exists := manager.sessions[id];exists{
+	for _, id := range timeoutList {
+		if _, exists := manager.sessions[id]; exists {
 			delete(manager.sessions, id)
 			log.Printf("<session> timeout session '%s' removed", id)
 		}

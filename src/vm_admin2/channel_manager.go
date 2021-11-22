@@ -1,11 +1,12 @@
-package main
+package vm_admin2
 
 import (
-	"github.com/project-nano/framework"
+	"fmt"
 	"log"
 	"time"
-	"github.com/satori/go.uuid"
-	"fmt"
+	"vm_manager/vm_utils"
+
+	uuid "github.com/satori/go.uuid"
 )
 
 type MonitorToken struct {
@@ -48,7 +49,7 @@ type ChannelManager struct {
 	runner   *vm_utils.SimpleRunner
 }
 
-func CreateChannelManager() (manager *ChannelManager, err error){
+func CreateChannelManager() (manager *ChannelManager, err error) {
 	const (
 		DefaultQueueSize = 1 << 10
 	)
@@ -59,38 +60,37 @@ func CreateChannelManager() (manager *ChannelManager, err error){
 	return
 }
 
-
-func (manager *ChannelManager)CreateChannel(address, secret string, respChan chan ChannelResult){
-	manager.commands <- channelCommand{Type:ChannelCommandCreate, Address:address, Secret:secret, Result:respChan}
+func (manager *ChannelManager) CreateChannel(address, secret string, respChan chan ChannelResult) {
+	manager.commands <- channelCommand{Type: ChannelCommandCreate, Address: address, Secret: secret, Result: respChan}
 }
 
-func (manager *ChannelManager)EstablishChannel(channel string, respChan chan ChannelResult){
-	manager.commands <- channelCommand{Type:ChannelCommandEstablish, Channel:channel, Result:respChan}
+func (manager *ChannelManager) EstablishChannel(channel string, respChan chan ChannelResult) {
+	manager.commands <- channelCommand{Type: ChannelCommandEstablish, Channel: channel, Result: respChan}
 }
 
-func (manager *ChannelManager) Start() error{
+func (manager *ChannelManager) Start() error {
 	return manager.runner.Start()
 }
 
-func (manager *ChannelManager) Stop() error{
+func (manager *ChannelManager) Stop() error {
 	return manager.runner.Stop()
 }
 
-func (manager *ChannelManager)Routine(c vm_utils.RoutineController){
+func (manager *ChannelManager) Routine(c vm_utils.RoutineController) {
 	log.Println("<channel> started")
 	const (
-		CheckInterval = 2*time.Second
+		CheckInterval = 2 * time.Second
 	)
 	var checkTicker = time.NewTicker(CheckInterval)
 
-	for !c.IsStopping(){
+	for !c.IsStopping() {
 		select {
-		case <- c.GetNotifyChannel():
+		case <-c.GetNotifyChannel():
 			log.Println("<channel> stopping...")
 			c.SetStopping()
-		case <- checkTicker.C:
+		case <-checkTicker.C:
 			manager.checkChannels()
-		case cmd := <- manager.commands:
+		case cmd := <-manager.commands:
 			manager.handleCommand(cmd)
 		}
 	}
@@ -98,26 +98,26 @@ func (manager *ChannelManager)Routine(c vm_utils.RoutineController){
 	log.Println("<channel> stopped")
 }
 
-func (manager *ChannelManager)checkChannels(){
-	if 0 == len(manager.channels){
+func (manager *ChannelManager) checkChannels() {
+	if 0 == len(manager.channels) {
 		return
 	}
 	var now = time.Now()
 	var clearList []string
-	for id, channel := range manager.channels{
-		if now.After(channel.Expire){
+	for id, channel := range manager.channels {
+		if now.After(channel.Expire) {
 			clearList = append(clearList, id)
 		}
 	}
-	if 0 != len(clearList){
-		for _, id := range clearList{
+	if 0 != len(clearList) {
+		for _, id := range clearList {
 			log.Printf("<channel> channel %s expired", id)
 			delete(manager.channels, id)
 		}
 	}
 }
 
-func (manager *ChannelManager)handleCommand(cmd channelCommand) {
+func (manager *ChannelManager) handleCommand(cmd channelCommand) {
 	var err error
 	switch cmd.Type {
 	case ChannelCommandCreate:
@@ -127,22 +127,22 @@ func (manager *ChannelManager)handleCommand(cmd channelCommand) {
 	default:
 		log.Printf("<channel> invalid command type %d", cmd.Type)
 	}
-	if err != nil{
+	if err != nil {
 		log.Printf("<channel> handle command type %d fail: %s", cmd.Type, err.Error())
 	}
 }
 
-func (manager *ChannelManager)handleCreateChannel(address, secret string, respChan chan ChannelResult) (err error){
+func (manager *ChannelManager) handleCreateChannel(address, secret string, respChan chan ChannelResult) (err error) {
 	const (
-		ChannelTimeout = 15*time.Second
+		ChannelTimeout  = 15 * time.Second
 		DefaultProtocol = "vnc"
 	)
 	var newID = uuid.NewV4()
 
 	var channelID = newID.String()
-	if _, exists := manager.channels[channelID];exists{
+	if _, exists := manager.channels[channelID]; exists {
 		err = fmt.Errorf("channel '%s' already exists", channelID)
-		respChan <- ChannelResult{Error:err}
+		respChan <- ChannelResult{Error: err}
 		return err
 	}
 	var expire = time.Now().Add(ChannelTimeout)
@@ -150,19 +150,19 @@ func (manager *ChannelManager)handleCreateChannel(address, secret string, respCh
 	manager.channels[channelID] = channel
 	log.Printf("<channel> new channel '%s' created, address '%s', secret '%s'", channelID, address, secret)
 	var token = MonitorToken{channelID, channel.Protocol, channel.Username, channel.Password}
-	respChan <- ChannelResult{MonitorToken:token}
+	respChan <- ChannelResult{MonitorToken: token}
 	return nil
 }
 
-func (manager *ChannelManager)handleEstablishChannel(channelID string, respChan chan ChannelResult) error{
+func (manager *ChannelManager) handleEstablishChannel(channelID string, respChan chan ChannelResult) error {
 	channel, exists := manager.channels[channelID]
-	if !exists{
+	if !exists {
 		var err = fmt.Errorf("invalid channel '%s'", channelID)
 		log.Printf("<channel> establish channel fail: %s", err.Error())
-		respChan <- ChannelResult{Error:err}
+		respChan <- ChannelResult{Error: err}
 		return err
 	}
-	respChan <- ChannelResult{Address:channel.Address}
+	respChan <- ChannelResult{Address: channel.Address}
 	log.Printf("<channel> channel '%s' established", channelID)
 	delete(manager.channels, channelID)
 	return nil

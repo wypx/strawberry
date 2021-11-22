@@ -1,19 +1,21 @@
-package main
+package vm_admin2
 
 import (
 	"path/filepath"
-	"github.com/project-nano/framework"
-	"log"
-	"sort"
-	"fmt"
-	"github.com/pkg/errors"
+
 	"crypto/rand"
-	"golang.org/x/crypto/bcrypt"
-	"os"
-	"encoding/json"
-	"io/ioutil"
 	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
 	"regexp"
+	"sort"
+	"vm_manager/vm_utils"
+
+	"github.com/pkg/errors"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserRole struct {
@@ -126,40 +128,40 @@ type UserManager struct {
 
 var ObscuredSecretError = errors.New("invalid user or password")
 
-func CreateUserManager(configPath string)  (manager *UserManager, err error){
+func CreateUserManager(configPath string) (manager *UserManager, err error) {
 	const (
 		ConfigName = "users.data"
 		NameRegexp = "[^\\da-zA-Z-_.]"
 	)
 	manager = &UserManager{}
 	manager.configFile = filepath.Join(configPath, ConfigName)
-	manager.commands = make(chan userCMD, 1 << 10)
+	manager.commands = make(chan userCMD, 1<<10)
 	manager.users = map[string]LoginUser{}
 	manager.groups = map[string]UserGroup{}
 	manager.roles = map[string]UserRole{}
 	manager.nameRegex, err = regexp.Compile(NameRegexp)
-	if err != nil{
+	if err != nil {
 		return
 	}
 	manager.runner = vm_utils.CreateSimpleRunner(manager.Routine)
-	if err = manager.loadConfig(); err != nil{
+	if err = manager.loadConfig(); err != nil {
 		return
 	}
 	return manager, nil
 }
-func (manager *UserManager) Start() error{
+func (manager *UserManager) Start() error {
 	return manager.runner.Start()
 }
 
-func (manager *UserManager) Stop() error{
+func (manager *UserManager) Stop() error {
 	return manager.runner.Stop()
 }
 
-func (manager *UserManager) Routine(c vm_utils.RoutineController){
+func (manager *UserManager) Routine(c vm_utils.RoutineController) {
 	log.Println("<user> started")
-	for !c.IsStopping(){
+	for !c.IsStopping() {
 		select {
-		case <- c.GetNotifyChannel():
+		case <-c.GetNotifyChannel():
 			c.SetStopping()
 		case cmd := <-manager.commands:
 			manager.handleCommand(cmd)
@@ -183,43 +185,43 @@ type UserConfig struct {
 	Users  []LoginUser   `json:"users,omitempty"`
 }
 
-func (manager *UserManager) IsUserAvailable() bool{
-	return  0 != len(manager.users)
+func (manager *UserManager) IsUserAvailable() bool {
+	return 0 != len(manager.users)
 }
 
-func (manager *UserManager) loadConfig() (err error){
-	if _, err = os.Stat(manager.configFile);os.IsNotExist(err){
+func (manager *UserManager) loadConfig() (err error) {
+	if _, err = os.Stat(manager.configFile); os.IsNotExist(err) {
 		log.Printf("<user> user data '%s' not available", manager.configFile)
 		return nil
 	}
 	file, err := os.Open(manager.configFile)
-	if err != nil{
+	if err != nil {
 		return
 	}
 	defer file.Close()
 	var decoder = json.NewDecoder(file)
 	var config UserConfig
-	if err = decoder.Decode(&config); err != nil{
+	if err = decoder.Decode(&config); err != nil {
 		return
 	}
-	for _, role := range config.Roles{
+	for _, role := range config.Roles {
 		manager.roles[role.Name] = role
 	}
-	for _, user := range config.Users{
+	for _, user := range config.Users {
 		manager.users[user.Name] = user
 	}
-	for _, groupConfig := range config.Groups{
-		var group = UserGroup{Name:groupConfig.Name, Display:groupConfig.Display, Visibility: groupConfig.Visibility}
+	for _, groupConfig := range config.Groups {
+		var group = UserGroup{Name: groupConfig.Name, Display: groupConfig.Display, Visibility: groupConfig.Visibility}
 		group.Roles = map[string]bool{}
 		group.Members = map[string]bool{}
-		for _, roleName := range groupConfig.Role{
+		for _, roleName := range groupConfig.Role {
 			group.Roles[roleName] = true
 		}
-		for _, memberName := range groupConfig.Members{
-			if user, exists := manager.users[memberName]; !exists{
+		for _, memberName := range groupConfig.Members {
+			if user, exists := manager.users[memberName]; !exists {
 				err = fmt.Errorf("invalid member '%s' in group '%s'", memberName, group.Name)
 				return
-			}else{
+			} else {
 				user.Group = group.Name
 				manager.users[memberName] = user
 			}
@@ -233,32 +235,32 @@ func (manager *UserManager) loadConfig() (err error){
 	return nil
 }
 
-func (manager *UserManager) saveConfig() (err error){
+func (manager *UserManager) saveConfig() (err error) {
 	const (
 		DefaultFilePerm = 0640
 	)
 	var config UserConfig
-	for _, user := range manager.users{
+	for _, user := range manager.users {
 		config.Users = append(config.Users, user)
 	}
-	for _, role := range manager.roles{
+	for _, role := range manager.roles {
 		config.Roles = append(config.Roles, role)
 	}
-	for _, group := range manager.groups{
-		var groupConfig = GroupConfig{Name:group.Name, Display:group.Display, Visibility:group.Visibility}
-		for roleName, _ := range group.Roles{
+	for _, group := range manager.groups {
+		var groupConfig = GroupConfig{Name: group.Name, Display: group.Display, Visibility: group.Visibility}
+		for roleName, _ := range group.Roles {
 			groupConfig.Role = append(groupConfig.Role, roleName)
 		}
-		for memberName, _ := range group.Members{
+		for memberName, _ := range group.Members {
 			groupConfig.Members = append(groupConfig.Members, memberName)
 		}
 		config.Groups = append(config.Groups, groupConfig)
 	}
 	data, err := json.MarshalIndent(config, "", " ")
-	if err != nil{
+	if err != nil {
 		return
 	}
-	if err = ioutil.WriteFile(manager.configFile, data, DefaultFilePerm); err != nil{
+	if err = ioutil.WriteFile(manager.configFile, data, DefaultFilePerm); err != nil {
 		return
 	}
 	log.Printf("<user> %d role(s), %d group(s), %d user(s) saved to '%s'",
@@ -266,107 +268,107 @@ func (manager *UserManager) saveConfig() (err error){
 	return nil
 }
 
-func (manager *UserManager) QueryRoles(resp chan UserResult)  {
-	manager.commands <- userCMD{Type: cmdQueryRole, ResultChan:resp}
+func (manager *UserManager) QueryRoles(resp chan UserResult) {
+	manager.commands <- userCMD{Type: cmdQueryRole, ResultChan: resp}
 }
 
-func (manager *UserManager) AddRole(name string, menu []string, resp chan error)  {
-	manager.commands <- userCMD{Type: cmdAddRole, Role:name, Menu:menu, ErrorChan:resp}
+func (manager *UserManager) AddRole(name string, menu []string, resp chan error) {
+	manager.commands <- userCMD{Type: cmdAddRole, Role: name, Menu: menu, ErrorChan: resp}
 }
 
-func (manager *UserManager) GetRole(name string, resp chan UserResult)  {
-	manager.commands <- userCMD{Type: cmdGetRole, Role:name, ResultChan:resp}
+func (manager *UserManager) GetRole(name string, resp chan UserResult) {
+	manager.commands <- userCMD{Type: cmdGetRole, Role: name, ResultChan: resp}
 }
 
-func (manager *UserManager) ModifyRole(name string, menu []string, resp chan error)  {
-	manager.commands <- userCMD{Type: cmdModifyRole, Role:name, Menu:menu, ErrorChan:resp}
+func (manager *UserManager) ModifyRole(name string, menu []string, resp chan error) {
+	manager.commands <- userCMD{Type: cmdModifyRole, Role: name, Menu: menu, ErrorChan: resp}
 }
 
-func (manager *UserManager) RemoveRole(name string, resp chan error)  {
-	manager.commands <- userCMD{Type: cmdRemoveRole, Role:name, ErrorChan:resp}
+func (manager *UserManager) RemoveRole(name string, resp chan error) {
+	manager.commands <- userCMD{Type: cmdRemoveRole, Role: name, ErrorChan: resp}
 }
 
-func (manager *UserManager) QueryGroups(resp chan UserResult)  {
-	manager.commands <- userCMD{Type: cmdQueryGroup, ResultChan:resp}
+func (manager *UserManager) QueryGroups(resp chan UserResult) {
+	manager.commands <- userCMD{Type: cmdQueryGroup, ResultChan: resp}
 }
 
-func (manager *UserManager) AddGroup(name, display string, roleList []string, resp chan error)  {
-	manager.commands <- userCMD{Type: cmdAddGroup, Group:name, Display:display, RoleList:roleList, ErrorChan:resp}
+func (manager *UserManager) AddGroup(name, display string, roleList []string, resp chan error) {
+	manager.commands <- userCMD{Type: cmdAddGroup, Group: name, Display: display, RoleList: roleList, ErrorChan: resp}
 }
 
-func (manager *UserManager) GetGroup(name string, resp chan UserResult)  {
-	manager.commands <- userCMD{Type: cmdGetGroup, Group:name, ResultChan:resp}
+func (manager *UserManager) GetGroup(name string, resp chan UserResult) {
+	manager.commands <- userCMD{Type: cmdGetGroup, Group: name, ResultChan: resp}
 }
 
-func (manager *UserManager) ModifyGroup(name, display string, roleList []string, resp chan error)  {
-	manager.commands <- userCMD{Type: cmdModifyGroup, Group:name, Display:display, RoleList:roleList, ErrorChan:resp}
+func (manager *UserManager) ModifyGroup(name, display string, roleList []string, resp chan error) {
+	manager.commands <- userCMD{Type: cmdModifyGroup, Group: name, Display: display, RoleList: roleList, ErrorChan: resp}
 }
 
-func (manager *UserManager) RemoveGroup(name string, resp chan error)  {
-	manager.commands <- userCMD{Type: cmdRemoveGroup, Group:name, ErrorChan:resp}
+func (manager *UserManager) RemoveGroup(name string, resp chan error) {
+	manager.commands <- userCMD{Type: cmdRemoveGroup, Group: name, ErrorChan: resp}
 }
 
-func (manager *UserManager) QueryGroupMembers(group string,resp chan UserResult)  {
-	manager.commands <- userCMD{Type: cmdQueryGroupMember, Group:group, ResultChan:resp}
+func (manager *UserManager) QueryGroupMembers(group string, resp chan UserResult) {
+	manager.commands <- userCMD{Type: cmdQueryGroupMember, Group: group, ResultChan: resp}
 }
 
-func (manager *UserManager) AddGroupMember(group, user string, resp chan error)  {
-	manager.commands <- userCMD{Type: cmdAddGroupMember, Group:group, User:user, ErrorChan:resp}
+func (manager *UserManager) AddGroupMember(group, user string, resp chan error) {
+	manager.commands <- userCMD{Type: cmdAddGroupMember, Group: group, User: user, ErrorChan: resp}
 }
 
-func (manager *UserManager) RemoveGroupMember(group, user string, resp chan error)  {
-	manager.commands <- userCMD{Type: cmdRemoveGroupMember, Group:group, User:user, ErrorChan:resp}
+func (manager *UserManager) RemoveGroupMember(group, user string, resp chan error) {
+	manager.commands <- userCMD{Type: cmdRemoveGroupMember, Group: group, User: user, ErrorChan: resp}
 }
 
-func (manager *UserManager) QueryUsers(resp chan UserResult)  {
-	manager.commands <- userCMD{Type: cmdQueryUser, ResultChan:resp}
+func (manager *UserManager) QueryUsers(resp chan UserResult) {
+	manager.commands <- userCMD{Type: cmdQueryUser, ResultChan: resp}
 }
 
-func (manager *UserManager) GetUser(name string, resp chan UserResult)  {
-	manager.commands <- userCMD{Type: cmdGetUser, User:name, ResultChan:resp}
+func (manager *UserManager) GetUser(name string, resp chan UserResult) {
+	manager.commands <- userCMD{Type: cmdGetUser, User: name, ResultChan: resp}
 }
 
-func (manager *UserManager) CreateUser(name, nick, mail, password string, resp chan error)  {
-	manager.commands <- userCMD{Type: cmdCreateUser, User:name, Nick: nick, Mail:mail, Password:password, ErrorChan:resp}
+func (manager *UserManager) CreateUser(name, nick, mail, password string, resp chan error) {
+	manager.commands <- userCMD{Type: cmdCreateUser, User: name, Nick: nick, Mail: mail, Password: password, ErrorChan: resp}
 }
 
-func (manager *UserManager) ModifyUser(name, nick, mail string, resp chan error)  {
-	manager.commands <- userCMD{Type: cmdModifyUser, User:name, Nick: nick, Mail:mail, ErrorChan:resp}
+func (manager *UserManager) ModifyUser(name, nick, mail string, resp chan error) {
+	manager.commands <- userCMD{Type: cmdModifyUser, User: name, Nick: nick, Mail: mail, ErrorChan: resp}
 }
 
-func (manager *UserManager) DeleteUser(name string, resp chan error)  {
-	manager.commands <- userCMD{Type: cmdDeleteUser, User:name, ErrorChan:resp}
+func (manager *UserManager) DeleteUser(name string, resp chan error) {
+	manager.commands <- userCMD{Type: cmdDeleteUser, User: name, ErrorChan: resp}
 }
 
-func (manager *UserManager) ModifyUserPassword(name, old, new string, resp chan error)  {
-	manager.commands <- userCMD{Type: cmdModifyUserPassword, User:name, Challenge:old, Password:new, ErrorChan:resp}
+func (manager *UserManager) ModifyUserPassword(name, old, new string, resp chan error) {
+	manager.commands <- userCMD{Type: cmdModifyUserPassword, User: name, Challenge: old, Password: new, ErrorChan: resp}
 }
 
-func (manager *UserManager) VerifyUserPassword(name, password string, resp chan error)  {
-	manager.commands <- userCMD{Type: cmdVerifyUserPassword, User:name, Challenge:password, ErrorChan:resp}
+func (manager *UserManager) VerifyUserPassword(name, password string, resp chan error) {
+	manager.commands <- userCMD{Type: cmdVerifyUserPassword, User: name, Challenge: password, ErrorChan: resp}
 }
 
-func (manager *UserManager) SearchUsers(groupName string, resp chan UserResult)  {
-	manager.commands <- userCMD{Type: cmdSearchUser, Group:groupName, ResultChan:resp}
+func (manager *UserManager) SearchUsers(groupName string, resp chan UserResult) {
+	manager.commands <- userCMD{Type: cmdSearchUser, Group: groupName, ResultChan: resp}
 }
 
-func (manager *UserManager) IsInitialed(resp chan error)  {
-	manager.commands <- userCMD{Type: cmdIsInitialed, ErrorChan:resp}
+func (manager *UserManager) IsInitialed(resp chan error) {
+	manager.commands <- userCMD{Type: cmdIsInitialed, ErrorChan: resp}
 }
 
-func (manager *UserManager) UpdateVisibility(group string, visibility GroupVisibility, resp chan error)  {
-	manager.commands <- userCMD{Type: cmdUpdateVisibility, Group:group, Visibility:visibility, ErrorChan:resp}
+func (manager *UserManager) UpdateVisibility(group string, visibility GroupVisibility, resp chan error) {
+	manager.commands <- userCMD{Type: cmdUpdateVisibility, Group: group, Visibility: visibility, ErrorChan: resp}
 }
 
-func (manager *UserManager) GetVisibility(group string, resp chan UserResult)  {
-	manager.commands <- userCMD{Type: cmdGetVisibility, Group:group, ResultChan:resp}
+func (manager *UserManager) GetVisibility(group string, resp chan UserResult) {
+	manager.commands <- userCMD{Type: cmdGetVisibility, Group: group, ResultChan: resp}
 }
 
-func (manager *UserManager) Initial(user, group, display, role, password string, menuList []string, resp chan error)  {
+func (manager *UserManager) Initial(user, group, display, role, password string, menuList []string, resp chan error) {
 	manager.commands <- userCMD{Type: cmdInitial, User: user, Group: group, Display: display, Role: role, Password: password, Menu: menuList, ErrorChan: resp}
 }
 
-func (manager *UserManager) handleCommand(cmd userCMD){
+func (manager *UserManager) handleCommand(cmd userCMD) {
 	var err error
 	switch cmd.Type {
 	case cmdQueryRole:
@@ -421,43 +423,43 @@ func (manager *UserManager) handleCommand(cmd userCMD){
 		err = manager.handleInitial(cmd.User, cmd.Group, cmd.Display, cmd.Role, cmd.Password, cmd.Menu, cmd.ErrorChan)
 	default:
 		log.Printf("<user> unsupport command type %d", cmd.Type)
-		return 
+		return
 	}
-	if err != nil{
+	if err != nil {
 		log.Printf("<user> handle command type %d fail: %s", cmd.Type, err.Error())
 	}
-	
+
 }
 
-func (manager *UserManager) handleQueryRoles(resp chan UserResult) (err error){
+func (manager *UserManager) handleQueryRoles(resp chan UserResult) (err error) {
 	var names []string
-	for roleName, _ := range manager.roles{
+	for roleName, _ := range manager.roles {
 		names = append(names, roleName)
 	}
 	sort.Stable(sort.StringSlice(names))
 	var result = make([]UserRole, 0)
-	for _, roleName := range names{
+	for _, roleName := range names {
 		role, exists := manager.roles[roleName]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("invalid role %s", roleName)
-			resp <- UserResult{Error:err}
+			resp <- UserResult{Error: err}
 			return err
 		}
 		result = append(result, role)
 	}
-	resp <- UserResult{RoleList:result}
+	resp <- UserResult{RoleList: result}
 	return nil
 }
 
-func (manager *UserManager) handleAddRole(name string, menu []string, resp chan error) (err error){
-	if err = manager.validateName(name); err != nil{
+func (manager *UserManager) handleAddRole(name string, menu []string, resp chan error) (err error) {
+	if err = manager.validateName(name); err != nil {
 		resp <- err
 		return
 	}
-	if _, exists := manager.roles[name]; exists{
+	if _, exists := manager.roles[name]; exists {
 		err = fmt.Errorf("role '%s' already exists", name)
 		resp <- err
-		return err		
+		return err
 	}
 	var role = UserRole{name, menu}
 	manager.roles[name] = role
@@ -466,20 +468,20 @@ func (manager *UserManager) handleAddRole(name string, menu []string, resp chan 
 	return manager.saveConfig()
 }
 
-func (manager *UserManager) handleGetRole(name string, resp chan UserResult)  (err error){
+func (manager *UserManager) handleGetRole(name string, resp chan UserResult) (err error) {
 	role, exists := manager.roles[name]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid role '%s'", name)
-		resp <- UserResult{Error:err}
+		resp <- UserResult{Error: err}
 		return err
 	}
-	resp <- UserResult{Role:role}
+	resp <- UserResult{Role: role}
 	return nil
 }
 
-func (manager *UserManager) handleModifyRole(name string, menu []string, resp chan error) (err error){
+func (manager *UserManager) handleModifyRole(name string, menu []string, resp chan error) (err error) {
 	role, exists := manager.roles[name]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("role '%s' not exists", name)
 		resp <- err
 		return err
@@ -491,14 +493,14 @@ func (manager *UserManager) handleModifyRole(name string, menu []string, resp ch
 	return manager.saveConfig()
 }
 
-func (manager *UserManager) handleRemoveRole(roleName string, resp chan error) (err error){
-	if _, exists := manager.roles[roleName]; !exists{
+func (manager *UserManager) handleRemoveRole(roleName string, resp chan error) (err error) {
+	if _, exists := manager.roles[roleName]; !exists {
 		err = fmt.Errorf("role '%s' not exists", roleName)
 		resp <- err
 		return err
 	}
-	for groupName, group := range manager.groups{
-		if _, exists := group.Roles[roleName];exists{
+	for groupName, group := range manager.groups {
+		if _, exists := group.Roles[roleName]; exists {
 			err = fmt.Errorf("role '%s' attached with group '%s'", roleName, groupName)
 			resp <- err
 			return err
@@ -510,41 +512,40 @@ func (manager *UserManager) handleRemoveRole(roleName string, resp chan error) (
 	return manager.saveConfig()
 }
 
-
-func (manager *UserManager) handleQueryGroups(resp chan UserResult)   (err error){
+func (manager *UserManager) handleQueryGroups(resp chan UserResult) (err error) {
 	var names []string
-	for groupName, _ := range manager.groups{
+	for groupName, _ := range manager.groups {
 		names = append(names, groupName)
 	}
 	sort.Stable(sort.StringSlice(names))
 	var result = make([]UserGroup, 0)
-	for _, groupName := range names{
+	for _, groupName := range names {
 		group, exists := manager.groups[groupName]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("invalid group %s", groupName)
-			resp <- UserResult{Error:err}
+			resp <- UserResult{Error: err}
 			return err
 		}
 		result = append(result, group)
 	}
-	resp <- UserResult{GroupList:result}
+	resp <- UserResult{GroupList: result}
 	return nil
 }
 
-func (manager *UserManager) handleAddGroup(name, display string, roleList []string, resp chan error) (err error){
-	if err = manager.validateName(name); err != nil{
+func (manager *UserManager) handleAddGroup(name, display string, roleList []string, resp chan error) (err error) {
+	if err = manager.validateName(name); err != nil {
 		resp <- err
 		return
 	}
 
-	if _, exists := manager.groups[name]; exists{
+	if _, exists := manager.groups[name]; exists {
 		err = fmt.Errorf("group '%s' already exists", name)
 		resp <- err
 		return err
 	}
 	var group = UserGroup{name, display, map[string]bool{}, map[string]bool{}, GroupVisibility{}}
-	for _, roleName := range roleList{
-		if _, exists := manager.roles[roleName]; !exists{
+	for _, roleName := range roleList {
+		if _, exists := manager.roles[roleName]; !exists {
 			err = fmt.Errorf("invalid role '%s'", roleName)
 			resp <- err
 			return err
@@ -557,28 +558,28 @@ func (manager *UserManager) handleAddGroup(name, display string, roleList []stri
 	return manager.saveConfig()
 }
 
-func (manager *UserManager) handleGetGroup(name string, resp chan UserResult)  (err error){
+func (manager *UserManager) handleGetGroup(name string, resp chan UserResult) (err error) {
 	group, exists := manager.groups[name]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid group '%s'", name)
-		resp <- UserResult{Error:err}
+		resp <- UserResult{Error: err}
 		return err
 	}
-	resp <- UserResult{Group:group}
+	resp <- UserResult{Group: group}
 	return nil
 }
 
-func (manager *UserManager) handleModifyGroup(name, display string, roleList []string, resp chan error)  (err error){
-	group, exists := manager.groups[name];
-	if !exists{
+func (manager *UserManager) handleModifyGroup(name, display string, roleList []string, resp chan error) (err error) {
+	group, exists := manager.groups[name]
+	if !exists {
 		err = fmt.Errorf("group '%s' not exists", name)
 		resp <- err
 		return err
 	}
 	group.Display = display
 	var roles = map[string]bool{}
-	for _, roleName := range roleList{
-		if _, exists := manager.roles[roleName]; !exists{
+	for _, roleName := range roleList {
+		if _, exists := manager.roles[roleName]; !exists {
 			err = fmt.Errorf("invalid role '%s'", roleName)
 			resp <- err
 			return err
@@ -592,14 +593,14 @@ func (manager *UserManager) handleModifyGroup(name, display string, roleList []s
 	return manager.saveConfig()
 }
 
-func (manager *UserManager) handleRemoveGroup(groupName string, resp chan error) (err error){
+func (manager *UserManager) handleRemoveGroup(groupName string, resp chan error) (err error) {
 	group, exists := manager.groups[groupName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("group '%s' not exists", groupName)
 		resp <- err
 		return err
 	}
-	for memberName, _ := range group.Members{
+	for memberName, _ := range group.Members {
 		err = fmt.Errorf("member '%s' attached with group '%s'", memberName, groupName)
 		resp <- err
 		return err
@@ -610,24 +611,24 @@ func (manager *UserManager) handleRemoveGroup(groupName string, resp chan error)
 	return manager.saveConfig()
 }
 
-func (manager *UserManager) handleQueryGroupMembers(groupName string,resp chan UserResult) (err error){
+func (manager *UserManager) handleQueryGroupMembers(groupName string, resp chan UserResult) (err error) {
 	group, exists := manager.groups[groupName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid group '%s'", groupName)
-		resp <- UserResult{Error:err}
+		resp <- UserResult{Error: err}
 		return err
 	}
 	var names []string
-	for memberName, _ := range group.Members{
+	for memberName, _ := range group.Members {
 		names = append(names, memberName)
 	}
 	sort.Stable(sort.StringSlice(names))
 	var memberList []LoginUser
-	for _, memberName := range names{
+	for _, memberName := range names {
 		member, exists := manager.users[memberName]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("invalid member '%s'", memberName)
-			resp <- UserResult{Error:err}
+			resp <- UserResult{Error: err}
 			return err
 		}
 		memberList = append(memberList, member)
@@ -636,25 +637,25 @@ func (manager *UserManager) handleQueryGroupMembers(groupName string,resp chan U
 	return nil
 }
 
-func (manager *UserManager) handleAddGroupMember(groupName, userName string, resp chan error) (err error){
+func (manager *UserManager) handleAddGroupMember(groupName, userName string, resp chan error) (err error) {
 	group, exists := manager.groups[groupName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid group '%s'", groupName)
 		resp <- err
 		return err
 	}
-	if _, exists := group.Members[userName]; exists{
+	if _, exists := group.Members[userName]; exists {
 		err = fmt.Errorf("member '%s' already in group '%s'", userName, groupName)
 		resp <- err
 		return err
 	}
 	user, exists := manager.users[userName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid user '%s'", userName)
 		resp <- err
 		return err
 	}
-	if "" != user.Group{
+	if "" != user.Group {
 		err = fmt.Errorf("user '%s' already joined group '%s'", userName, groupName)
 		resp <- err
 		return err
@@ -668,25 +669,25 @@ func (manager *UserManager) handleAddGroupMember(groupName, userName string, res
 	return manager.saveConfig()
 }
 
-func (manager *UserManager) handleRemoveGroupMember(groupName, userName string, resp chan error)  (err error){
+func (manager *UserManager) handleRemoveGroupMember(groupName, userName string, resp chan error) (err error) {
 	group, exists := manager.groups[groupName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid group '%s'", groupName)
 		resp <- err
 		return err
 	}
-	if _, exists := group.Members[userName]; !exists{
+	if _, exists := group.Members[userName]; !exists {
 		err = fmt.Errorf("member '%s' not in group '%s'", userName, groupName)
 		resp <- err
 		return err
 	}
 	user, exists := manager.users[userName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid user '%s'", userName)
 		resp <- err
 		return err
 	}
-	if user.Group != groupName{
+	if user.Group != groupName {
 		err = fmt.Errorf("user '%s' not in group '%s'", userName, groupName)
 		resp <- err
 		return err
@@ -700,98 +701,98 @@ func (manager *UserManager) handleRemoveGroupMember(groupName, userName string, 
 	return manager.saveConfig()
 }
 
-func (manager *UserManager) handleQueryUsers(resp chan UserResult)  (err error){
+func (manager *UserManager) handleQueryUsers(resp chan UserResult) (err error) {
 	var names []string
-	for userName, _ := range manager.users{
+	for userName, _ := range manager.users {
 		names = append(names, userName)
 	}
 	sort.Stable(sort.StringSlice(names))
 	var result = make([]LoginUser, 0)
-	for _, userName := range names{
+	for _, userName := range names {
 		user, exists := manager.users[userName]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("invalid user %s", userName)
-			resp <- UserResult{Error:err}
+			resp <- UserResult{Error: err}
 			return err
 		}
 		result = append(result, user)
 	}
-	resp <- UserResult{UserList:result}
+	resp <- UserResult{UserList: result}
 	return nil
 }
 
-func (manager *UserManager) handleGetUser(name string, resp chan UserResult)  (err error){
+func (manager *UserManager) handleGetUser(name string, resp chan UserResult) (err error) {
 	user, exists := manager.users[name]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid user '%s'", name)
-		resp <- UserResult{Error:err}
+		resp <- UserResult{Error: err}
 		return err
 	}
-	if "" != user.Group{
+	if "" != user.Group {
 		group, exists := manager.groups[user.Group]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("invalid group '%s' for user '%s'", user.Group, name)
-			resp <- UserResult{Error:err}
+			resp <- UserResult{Error: err}
 			return err
 		}
 		var menuMap = map[string]bool{}
-		for roleName, _ := range group.Roles{
+		for roleName, _ := range group.Roles {
 			role, exists := manager.roles[roleName]
-			if !exists{
+			if !exists {
 				err = fmt.Errorf("invalid role '%s' for group '%s'", roleName, user.Group)
-				resp <- UserResult{Error:err}
+				resp <- UserResult{Error: err}
 				return err
 			}
-			for _, menuName := range role.Menu{
+			for _, menuName := range role.Menu {
 				menuMap[menuName] = true
 			}
 		}
-		for menuName, _ := range menuMap{
+		for menuName, _ := range menuMap {
 			user.Menu = append(user.Menu, menuName)
 		}
 	}
-	resp <- UserResult{User:user}
+	resp <- UserResult{User: user}
 	return nil
 }
 
-func (manager *UserManager) handleCreateUser(name, nick, mail, password string, resp chan error)  (err error){
-	if err = manager.validateName(name); err != nil{
+func (manager *UserManager) handleCreateUser(name, nick, mail, password string, resp chan error) (err error) {
+	if err = manager.validateName(name); err != nil {
 		resp <- err
 		return
 	}
 
-	if _, exists := manager.users[name]; exists{
+	if _, exists := manager.users[name]; exists {
 		err = fmt.Errorf("user '%s' already exists", name)
 		resp <- err
 		return err
 	}
-	if err = isSecurePassword(password); err != nil{
+	if err = isSecurePassword(password); err != nil {
 		resp <- err
 		return err
 	}
 	secret, err := hashPassword(methodBCrypt, password)
-	if err != nil{
+	if err != nil {
 		resp <- err
 		return err
 	}
-	var user = LoginUser{Name:name, Nick:nick, Mail:mail, Secret:secret}
+	var user = LoginUser{Name: name, Nick: nick, Mail: mail, Secret: secret}
 	manager.users[name] = user
 	log.Printf("<user> new user '%s' created", name)
 	resp <- nil
 	return manager.saveConfig()
 }
 
-func (manager *UserManager) handleModifyUser(name, nick, mail string, resp chan error)  (err error){
+func (manager *UserManager) handleModifyUser(name, nick, mail string, resp chan error) (err error) {
 	user, exists := manager.users[name]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid user '%s'", name)
 		resp <- err
 		return err
 	}
-	if "" != mail{
+	if "" != mail {
 		user.Mail = mail
 	}
-	if "" != nick{
+	if "" != nick {
 		user.Nick = nick
 	}
 	manager.users[name] = user
@@ -800,23 +801,23 @@ func (manager *UserManager) handleModifyUser(name, nick, mail string, resp chan 
 	return manager.saveConfig()
 }
 
-func (manager *UserManager) handleDeleteUser(userName string, resp chan error)  (err error){
+func (manager *UserManager) handleDeleteUser(userName string, resp chan error) (err error) {
 	var user LoginUser
 	var exists = false
-	if user, exists = manager.users[userName]; !exists{
+	if user, exists = manager.users[userName]; !exists {
 		err = fmt.Errorf("invalid user '%s'", userName)
 		resp <- err
 		return err
 	}
 	var groupName = user.Group
-	if "" != groupName{
+	if "" != groupName {
 		var group UserGroup
-		if group, exists = manager.groups[groupName]; !exists{
+		if group, exists = manager.groups[groupName]; !exists {
 			err = fmt.Errorf("invalid group '%s' of user '%s", groupName, userName)
 			resp <- err
 			return err
 		}
-		if _, exists = group.Members[userName]; !exists{
+		if _, exists = group.Members[userName]; !exists {
 			err = fmt.Errorf("member '%s' not in group '%s'", userName, groupName)
 			resp <- err
 			return err
@@ -830,23 +831,23 @@ func (manager *UserManager) handleDeleteUser(userName string, resp chan error)  
 	return manager.saveConfig()
 }
 
-func (manager *UserManager) handleModifyUserPassword(name, old, new string, resp chan error)  (err error){
+func (manager *UserManager) handleModifyUserPassword(name, old, new string, resp chan error) (err error) {
 	user, exists := manager.users[name]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid user '%s'", name)
 		resp <- ObscuredSecretError
 		return err
 	}
-	if err = verifyPassword(old, user.Secret); err != nil{
+	if err = verifyPassword(old, user.Secret); err != nil {
 		resp <- ObscuredSecretError
 		return err
 	}
-	if err = isSecurePassword(new); err != nil{
+	if err = isSecurePassword(new); err != nil {
 		resp <- err
 		return err
 	}
 	user.Secret, err = hashPassword(methodBCrypt, new)
-	if err != nil{
+	if err != nil {
 		resp <- err
 		return err
 	}
@@ -856,14 +857,14 @@ func (manager *UserManager) handleModifyUserPassword(name, old, new string, resp
 	return manager.saveConfig()
 }
 
-func (manager *UserManager) handleVerifyUserPassword(name, password string, resp chan error)  (err error){
+func (manager *UserManager) handleVerifyUserPassword(name, password string, resp chan error) (err error) {
 	user, exists := manager.users[name]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid user '%s'", name)
 		resp <- ObscuredSecretError
 		return err
 	}
-	if err = verifyPassword(password, user.Secret); err != nil{
+	if err = verifyPassword(password, user.Secret); err != nil {
 		resp <- ObscuredSecretError
 		return err
 	}
@@ -871,41 +872,41 @@ func (manager *UserManager) handleVerifyUserPassword(name, password string, resp
 	return nil
 }
 
-func (manager *UserManager) handleSearchUsers(groupName string, resp chan UserResult)  (err error){
+func (manager *UserManager) handleSearchUsers(groupName string, resp chan UserResult) (err error) {
 	var names []string
-	for userName, user := range manager.users{
-		if user.Group == groupName{
+	for userName, user := range manager.users {
+		if user.Group == groupName {
 			names = append(names, userName)
 		}
 	}
 	sort.Stable(sort.StringSlice(names))
 	var result = make([]LoginUser, 0)
-	for _, userName := range names{
+	for _, userName := range names {
 		user, exists := manager.users[userName]
-		if !exists{
+		if !exists {
 			err = fmt.Errorf("invalid user %s", userName)
-			resp <- UserResult{Error:err}
+			resp <- UserResult{Error: err}
 			return err
 		}
 		result = append(result, user)
 	}
-	resp <- UserResult{UserList:result}
+	resp <- UserResult{UserList: result}
 	return nil
 }
 
-func (manager *UserManager) handleIsInitialed(resp chan error)  (err error) {
-	if !manager.IsUserAvailable(){
+func (manager *UserManager) handleIsInitialed(resp chan error) (err error) {
+	if !manager.IsUserAvailable() {
 		err = errors.New("system not initial")
 		resp <- err
-	}else{
+	} else {
 		resp <- nil
 	}
 	return nil
 }
 
-func (manager *UserManager) handleUpdateVisibility(groupName string, visibility GroupVisibility, resp chan error) (err error){
+func (manager *UserManager) handleUpdateVisibility(groupName string, visibility GroupVisibility, resp chan error) (err error) {
 	group, exists := manager.groups[groupName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid group '%s'", groupName)
 		resp <- err
 		return
@@ -917,11 +918,11 @@ func (manager *UserManager) handleUpdateVisibility(groupName string, visibility 
 	return manager.saveConfig()
 }
 
-func (manager *UserManager) handleGetVisibility(groupName string, resp chan UserResult) (err error){
+func (manager *UserManager) handleGetVisibility(groupName string, resp chan UserResult) (err error) {
 	group, exists := manager.groups[groupName]
-	if !exists{
+	if !exists {
 		err = fmt.Errorf("invalid group '%s'", groupName)
-		resp <- UserResult{Error:err}
+		resp <- UserResult{Error: err}
 		return
 	}
 	resp <- UserResult{Visibility: group.Visibility}
@@ -929,60 +930,60 @@ func (manager *UserManager) handleGetVisibility(groupName string, resp chan User
 }
 
 func (manager *UserManager) handleInitial(userName, groupName, displayName, roleName, password string, menuList []string, resp chan error) (err error) {
-	if 0 != len(manager.users){
+	if 0 != len(manager.users) {
 		err = errors.New("system already initialed")
 		resp <- err
 		return
 	}
-	if err = manager.validateName(userName); err != nil{
+	if err = manager.validateName(userName); err != nil {
 		err = fmt.Errorf("invalid user name: %s", err.Error())
 		resp <- err
 		return
 	}
-	if err = manager.validateName(groupName); err != nil{
+	if err = manager.validateName(groupName); err != nil {
 		err = fmt.Errorf("invalid group name: %s", err.Error())
 		resp <- err
 		return
 	}
-	if err = manager.validateName(roleName); err != nil{
+	if err = manager.validateName(roleName); err != nil {
 		err = fmt.Errorf("invalid role name: %s", err.Error())
 		resp <- err
 		return
 	}
 	var exists = false
-	if _, exists = manager.users[userName]; exists{
+	if _, exists = manager.users[userName]; exists {
 		err = fmt.Errorf("user '%s' already exists", userName)
 		resp <- err
 		return
 	}
-	if _, exists = manager.roles[roleName]; exists{
+	if _, exists = manager.roles[roleName]; exists {
 		err = fmt.Errorf("role '%s' already exists", roleName)
 		resp <- err
 		return
 	}
-	if _, exists = manager.groups[groupName]; exists{
+	if _, exists = manager.groups[groupName]; exists {
 		err = fmt.Errorf("group '%s' already exists", groupName)
 		resp <- err
 		return
 	}
-	if err = isSecurePassword(password); err != nil{
+	if err = isSecurePassword(password); err != nil {
 		resp <- err
 		return
 	}
-	if 0 == len(menuList){
+	if 0 == len(menuList) {
 		errors.New("require at least one menu item")
 		resp <- err
 		return
 	}
 	secret, err := hashPassword(methodBCrypt, password)
-	if err != nil{
+	if err != nil {
 		resp <- err
 		return err
 	}
-	var user = LoginUser{Name:userName, Secret:secret, Group: groupName}
+	var user = LoginUser{Name: userName, Secret: secret, Group: groupName}
 	var role = UserRole{roleName, menuList}
 
-	var groupMember = map[string]bool{ userName: true}
+	var groupMember = map[string]bool{userName: true}
 	var groupRole = map[string]bool{roleName: true}
 	var group = UserGroup{groupName, displayName, groupRole, groupMember, GroupVisibility{}}
 
@@ -994,58 +995,58 @@ func (manager *UserManager) handleInitial(userName, groupName, displayName, role
 	return manager.saveConfig()
 }
 
-func (manager *UserManager) validateName(name string) (err error){
+func (manager *UserManager) validateName(name string) (err error) {
 	var matched = manager.nameRegex.FindStringSubmatch(name)
-	if 0 != len(matched){
+	if 0 != len(matched) {
 		err = fmt.Errorf("invalid char '%s' in name (only letters/digit/'-'/'_'/'.' allowed)", matched[0])
 		return err
 	}
 	return nil
 }
 
-func isSecurePassword(password string) (err error){
+func isSecurePassword(password string) (err error) {
 	const (
 		LeastLength = 8
 	)
-	if len(password) < LeastLength{
+	if len(password) < LeastLength {
 		err = fmt.Errorf("length of password must > %d", LeastLength)
 		return
 	}
 	var lower, upper, digit = false, false, false
 	var content = []byte(password)
-	for _, char := range content{
-		if !digit && (char >= 0x30 && char <= 0x39){
+	for _, char := range content {
+		if !digit && (char >= 0x30 && char <= 0x39) {
 			digit = true
 		}
-		if !lower && (char >= 0x61 && char <= 0x7A){
+		if !lower && (char >= 0x61 && char <= 0x7A) {
 			lower = true
 		}
-		if !upper && (char >= 0x41 && char <= 0x5A){
+		if !upper && (char >= 0x41 && char <= 0x5A) {
 			upper = true
 		}
 	}
-	if !digit{
+	if !digit {
 		err = errors.New("password must have a digit at least")
 		return
 	}
-	if !lower{
+	if !lower {
 		err = errors.New("password must have a lower letter at least")
 		return
 	}
-	if !upper{
+	if !upper {
 		err = errors.New("password must have a upper letter at least")
 		return
 	}
 	return nil
 }
 
-func hashPassword(method cryptMethod, password string) (secret EncryptedSecret, err error){
+func hashPassword(method cryptMethod, password string) (secret EncryptedSecret, err error) {
 	const (
 		SaltLength = 32
 	)
 	var randomData = make([]byte, SaltLength)
 	_, err = rand.Read(randomData)
-	if err != nil{
+	if err != nil {
 		return
 	}
 	var salt = base64.StdEncoding.EncodeToString(randomData)
@@ -1053,15 +1054,15 @@ func hashPassword(method cryptMethod, password string) (secret EncryptedSecret, 
 	secret.Salt = string(salt)
 	var input = append([]byte(password), salt...)
 	hashed, err := bcrypt.GenerateFromPassword(input, bcrypt.DefaultCost)
-	if err != nil{
+	if err != nil {
 		return
 	}
 	secret.Hash = string(hashed)
 	return
 }
 
-func verifyPassword(password string, secret EncryptedSecret) (err error){
-	if methodBCrypt != secret.Method{
+func verifyPassword(password string, secret EncryptedSecret) (err error) {
+	if methodBCrypt != secret.Method {
 		err = fmt.Errorf("invalid crypt method %d", secret.Method)
 		return
 	}

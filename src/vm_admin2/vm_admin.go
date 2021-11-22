@@ -1,4 +1,4 @@
-package main
+package vm_admin2
 
 import (
 	"encoding/json"
@@ -7,8 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-
-	"github.com/project-nano/common"
+	"vm_manager/vm_utils"
 )
 
 type FrontEndConfig struct {
@@ -82,19 +81,19 @@ func generateConfigure(workingPath string) (err error) {
 		)
 		var defaultWebRoot = filepath.Join(workingPath, WebRootName)
 		var config = FrontEndConfig{}
-		if config.ListenAddress, err = common.ChooseIPV4Address("Portal listen address"); err != nil {
+		if config.ListenAddress, err = vm_utils.ChooseIPV4Address("Portal listen address"); err != nil {
 			return
 		}
-		if config.ListenPort, err = common.InputInteger("Portal listen port", DefaultFrontEndPort); err != nil {
+		if config.ListenPort, err = vm_utils.InputInteger("Portal listen port", DefaultFrontEndPort); err != nil {
 			return
 		}
-		if config.ServiceHost, err = common.InputString("Backend service address", config.ListenAddress); err != nil {
+		if config.ServiceHost, err = vm_utils.InputString("Backend service address", config.ListenAddress); err != nil {
 			return
 		}
-		if config.ServicePort, err = common.InputInteger("Backend service port", DefaultBackEndPort); err != nil {
+		if config.ServicePort, err = vm_utils.InputInteger("Backend service port", DefaultBackEndPort); err != nil {
 			return
 		}
-		if config.WebRoot, err = common.InputString("Web Root Path", defaultWebRoot); err != nil {
+		if config.WebRoot, err = vm_utils.InputString("Web Root Path", defaultWebRoot); err != nil {
 			return
 		}
 		//write
@@ -120,7 +119,7 @@ func generateConfigure(workingPath string) (err error) {
 	return
 }
 
-func createDaemon(workingPath string) (service common.DaemonizedService, err error) {
+func createDaemon(workingPath string) (service vm_utils.DaemonizedService, err error) {
 	var configPath = filepath.Join(workingPath, ConfigPathName)
 	var dataPath = filepath.Join(workingPath, DataPathName)
 	if _, err = os.Stat(configPath); os.IsNotExist(err) {
@@ -136,6 +135,6 @@ func createDaemon(workingPath string) (service common.DaemonizedService, err err
 	return &s, err
 }
 
-func VmAdminInit() {
-	common.ProcessDaemon(ExecuteName, generateConfigure, createDaemon)
+func Initialize() {
+	vm_utils.ProcessDaemon(ExecuteName, generateConfigure, createDaemon)
 }

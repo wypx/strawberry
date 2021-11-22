@@ -2,7 +2,8 @@ package main
 
 import (
 	"time"
-	"github.com/project-nano/framework"
+	"vm_manager/vm_utils"
+
 	"log"
 )
 
@@ -63,15 +64,15 @@ func CreateLogManager(dataPath string) (manager *LogManager, err error) {
 	return
 }
 
-func (manager *LogManager) Start() error{
+func (manager *LogManager) Start() error {
 	return manager.runner.Start()
 }
 
-func (manager *LogManager) Stop() error{
+func (manager *LogManager) Stop() error {
 	return manager.runner.Stop()
 }
 
-func (manager *LogManager) Routine(c vm_utils.RoutineController){
+func (manager *LogManager) Routine(c vm_utils.RoutineController) {
 	log.Println("<log> started")
 	const (
 		FlushInterval = 30 * time.Second
@@ -81,7 +82,7 @@ func (manager *LogManager) Routine(c vm_utils.RoutineController){
 		select {
 		case <-c.GetNotifyChannel():
 			c.SetStopping()
-		case <- flushTicker.C:
+		case <-flushTicker.C:
 			manager.agent.Flush()
 		case cmd := <-manager.commands:
 			manager.handleCommand(cmd)
@@ -92,19 +93,19 @@ func (manager *LogManager) Routine(c vm_utils.RoutineController){
 	log.Println("<log> stopped")
 }
 
-func (manager *LogManager) QueryLog(condition LogQueryCondition, respChan chan LogResult)  {
-	manager.commands <- logCommand{Type:cmdQueryLog, Condition:condition, ResultChan:respChan}
+func (manager *LogManager) QueryLog(condition LogQueryCondition, respChan chan LogResult) {
+	manager.commands <- logCommand{Type: cmdQueryLog, Condition: condition, ResultChan: respChan}
 }
 
-func (manager *LogManager) AddLog(content string, respChan chan error)  {
-	manager.commands <- logCommand{Type:cmdAddLog, Content:content, ErrorChan:respChan}
+func (manager *LogManager) AddLog(content string, respChan chan error) {
+	manager.commands <- logCommand{Type: cmdAddLog, Content: content, ErrorChan: respChan}
 }
 
-func (manager *LogManager) RemoveLog(entries []string, respChan chan error)  {
-	manager.commands <- logCommand{Type:cmdRemoveLog, IDList:entries, ErrorChan:respChan}
+func (manager *LogManager) RemoveLog(entries []string, respChan chan error) {
+	manager.commands <- logCommand{Type: cmdRemoveLog, IDList: entries, ErrorChan: respChan}
 }
 
-func (manager *LogManager) handleCommand(cmd logCommand){
+func (manager *LogManager) handleCommand(cmd logCommand) {
 	var err error
 	switch cmd.Type {
 	case cmdQueryLog:
@@ -116,18 +117,18 @@ func (manager *LogManager) handleCommand(cmd logCommand){
 	default:
 		log.Printf("<log> unsupport command type %d", cmd.Type)
 	}
-	if err != nil{
+	if err != nil {
 		log.Printf("<log> handle command %d fail: %s", cmd.Type, err.Error())
 	}
 }
 
 func (manager *LogManager) handleQueryLog(condition LogQueryCondition, respChan chan LogResult) (err error) {
-	logs, total,  err := manager.agent.Query(condition)
-	if err != nil{
-		respChan <- LogResult{Error:err}
+	logs, total, err := manager.agent.Query(condition)
+	if err != nil {
+		respChan <- LogResult{Error: err}
 		return
 	}
-	respChan <- LogResult{Logs:logs, Total: total}
+	respChan <- LogResult{Logs: logs, Total: total}
 	return nil
 }
 

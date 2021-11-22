@@ -1,19 +1,20 @@
-package main
+package vm_admin2
 
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/websocket"
-	"github.com/julienschmidt/httprouter"
-	"github.com/pkg/errors"
 	"log"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/gorilla/websocket"
+	"github.com/julienschmidt/httprouter"
+	"github.com/pkg/errors"
 )
 
-func (service *FrontEndService)handleCreateChannel(w http.ResponseWriter, r *http.Request, params httprouter.Params){
-	if _, err := service.getLoggedSession(w, r); err != nil{
+func (service *FrontEndService) handleCreateChannel(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if _, err := service.getLoggedSession(w, r); err != nil {
 		ResponseFail(DefaultServerError, err.Error(), w)
 		return
 	}
@@ -23,7 +24,7 @@ func (service *FrontEndService)handleCreateChannel(w http.ResponseWriter, r *htt
 	var request userRequest
 	var err error
 	var decoder = json.NewDecoder(r.Body)
-	if err = decoder.Decode(&request);err != nil{
+	if err = decoder.Decode(&request); err != nil {
 		log.Printf("<%s> [create channel] parse request fail: %s", r.RemoteAddr, err.Error())
 		ResponseFail(DefaultServerError, err.Error(), w)
 		return
@@ -43,16 +44,16 @@ func (service *FrontEndService)handleCreateChannel(w http.ResponseWriter, r *htt
 			Data      MonitorConfig `json:"data"`
 		}
 		var getGuestRequest *http.Request
-		if getGuestRequest, err = http.NewRequest("GET", fmt.Sprintf("%s/guests/%s", service.backendURL, request.Guest), nil); err != nil{
+		if getGuestRequest, err = http.NewRequest("GET", fmt.Sprintf("%s/guests/%s", service.backendURL, request.Guest), nil); err != nil {
 			log.Printf("<%s> [create channel] build request fail: %s", r.RemoteAddr, err.Error())
 			ResponseFail(DefaultServerError, err.Error(), w)
 			return
 		}
 		getGuestRequest.Host = service.backendHost
-		for name, value := range r.Header{
+		for name, value := range r.Header {
 			getGuestRequest.Header.Set(name, value[0])
 		}
-		if err = service.generateRequestSignature(getGuestRequest); err != nil{
+		if err = service.generateRequestSignature(getGuestRequest); err != nil {
 			log.Printf("<%s> [create channel] signature request fail: %s", r.RemoteAddr, err.Error())
 			ResponseFail(DefaultServerError, err.Error(), w)
 			return
@@ -60,7 +61,7 @@ func (service *FrontEndService)handleCreateChannel(w http.ResponseWriter, r *htt
 		var client = &http.Client{Timeout: time.Second * 10}
 
 		resp, err := client.Do(getGuestRequest)
-		if err != nil{
+		if err != nil {
 			log.Printf("<%s> [create channel] get guest config fail: %s", r.RemoteAddr, err.Error())
 			ResponseFail(DefaultServerError, err.Error(), w)
 			return
@@ -68,20 +69,20 @@ func (service *FrontEndService)handleCreateChannel(w http.ResponseWriter, r *htt
 		defer resp.Body.Close()
 		var result userResponse
 		decoder = json.NewDecoder(resp.Body)
-		if err = decoder.Decode(&result);err != nil{
+		if err = decoder.Decode(&result); err != nil {
 			log.Printf("<%s> [create channel] parse guest config fail: %s", r.RemoteAddr, err.Error())
 			ResponseFail(DefaultServerError, err.Error(), w)
 			return
 		}
-		if 0 != result.ErrorCode{
+		if 0 != result.ErrorCode {
 			log.Printf("<%s> [create channel] get guest config fail: %s", r.RemoteAddr, result.Message)
 			ResponseFail(DefaultServerError, result.Message, w)
 			return
 		}
 		var respChan = make(chan ChannelResult)
 		service.channelManager.CreateChannel(result.Data.Internal.DisplayAddress, result.Data.MonitorSecret, respChan)
-		var tokenResult = <- respChan
-		if tokenResult.Error != nil{
+		var tokenResult = <-respChan
+		if tokenResult.Error != nil {
 			log.Printf("<%s> [create channel] create channel fail: %s", r.RemoteAddr, tokenResult.Error.Error())
 			ResponseFail(DefaultServerError, tokenResult.Error.Error(), w)
 			return
@@ -91,9 +92,9 @@ func (service *FrontEndService)handleCreateChannel(w http.ResponseWriter, r *htt
 	}
 }
 
-func (service *FrontEndService)handleEstablishChannel(w http.ResponseWriter, r *http.Request, params httprouter.Params){
+func (service *FrontEndService) handleEstablishChannel(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	var channelID = params.ByName("id")
-	if "" == channelID{
+	if "" == channelID {
 		err := errors.New("must specify channel id")
 		log.Printf("<%s> [establish channel] parse request fail: %s", r.RemoteAddr, err.Error())
 		ResponseFail(DefaultServerError, err.Error(), w)
@@ -102,8 +103,8 @@ func (service *FrontEndService)handleEstablishChannel(w http.ResponseWriter, r *
 	log.Printf("<%s> [establish channel] channel '%s'", r.RemoteAddr, channelID)
 	var respChan = make(chan ChannelResult)
 	service.channelManager.EstablishChannel(channelID, respChan)
-	var result = <- respChan
-	if result.Error != nil{
+	var result = <-respChan
+	if result.Error != nil {
 		log.Printf("<%s> [establish channel] get channel fail: %s", r.RemoteAddr, result.Error.Error())
 		ResponseFail(DefaultServerError, result.Error.Error(), w)
 		return
@@ -111,7 +112,7 @@ func (service *FrontEndService)handleEstablishChannel(w http.ResponseWriter, r *
 	var targetAddress = result.Address
 	const (
 		DefaultSubProtocol = "binary"
-		VncProtocol = "tcp"
+		VncProtocol        = "tcp"
 	)
 	var upgrader = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
@@ -120,29 +121,29 @@ func (service *FrontEndService)handleEstablishChannel(w http.ResponseWriter, r *
 		Subprotocols: []string{DefaultSubProtocol},
 	}
 	wsConn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil{
+	if err != nil {
 		log.Printf("<%s> [establish channel] upgrade fail: %s", r.RemoteAddr, err.Error())
 		ResponseFail(DefaultServerError, err.Error(), w)
 		return
 	}
 	defer wsConn.Close()
 	vncConn, err := net.Dial(VncProtocol, targetAddress)
-	if err != nil{
+	if err != nil {
 		log.Printf("<%s> [establish channel] open vnc channel fail: %s", r.RemoteAddr, err.Error())
 		ResponseFail(DefaultServerError, err.Error(), w)
 		return
 	}
 	defer vncConn.Close()
 	go forwardWebSocketToVnc(wsConn, vncConn, r.RemoteAddr)
-	var buffer = make([]byte, 4 << 10)
+	var buffer = make([]byte, 4<<10)
 	var n int
-	for{
+	for {
 		n, err = vncConn.Read(buffer)
-		if err != nil{
+		if err != nil {
 			log.Printf("<%s> [establish channel] recv from vnc fail: %s", r.RemoteAddr, err.Error())
 			break
 		}
-		if err = wsConn.WriteMessage(websocket.BinaryMessage, buffer[:n]); err != nil{
+		if err = wsConn.WriteMessage(websocket.BinaryMessage, buffer[:n]); err != nil {
 			log.Printf("<%s> [establish channel] send to websocket fail: %s", r.RemoteAddr, err.Error())
 			break
 		}
@@ -150,18 +151,18 @@ func (service *FrontEndService)handleEstablishChannel(w http.ResponseWriter, r *
 	log.Printf("<%s> [establish channel] closed", r.RemoteAddr)
 }
 
-func forwardWebSocketToVnc(wsConn *websocket.Conn, vncConn net.Conn, address string)  {
-	for{
+func forwardWebSocketToVnc(wsConn *websocket.Conn, vncConn net.Conn, address string) {
+	for {
 		msgType, data, err := wsConn.ReadMessage()
-		if err != nil{
+		if err != nil {
 			log.Printf("<%s> [establish channel] recv from websocket fail: %s", address, err.Error())
 			break
 		}
-		if msgType != websocket.BinaryMessage{
+		if msgType != websocket.BinaryMessage {
 			log.Printf("<%s> [establish channel] ignore message type %d from websocket", address, msgType)
 			continue
 		}
-		if _, err = vncConn.Write(data);err != nil{
+		if _, err = vncConn.Write(data); err != nil {
 			log.Printf("<%s> [establish channel] write to vnc fail: %s", address, err.Error())
 			break
 		}

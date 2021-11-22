@@ -1,15 +1,15 @@
-package main
+package vm_admin2
 
 import (
-	"time"
-	"fmt"
-	"os"
 	"bufio"
+	"fmt"
+	"io"
 	"log"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"io"
+	"time"
 )
 
 type LogAgent struct {
@@ -42,8 +42,8 @@ func CreateLogAgent(dataPath string) (agent *LogAgent, err error) {
 	agent.logContent = make([]string, 0)
 	agent.contentModified = false
 	agent.logRoot = filepath.Join(dataPath, logPathName)
-	if _, err = os.Stat(agent.logRoot); os.IsNotExist(err){
-		if err = os.MkdirAll(agent.logRoot, DefaultPathPerm); err != nil{
+	if _, err = os.Stat(agent.logRoot); os.IsNotExist(err) {
+		if err = os.MkdirAll(agent.logRoot, DefaultPathPerm); err != nil {
 			return
 		}
 		log.Printf("<log> log root path '%s' created", agent.logRoot)
@@ -51,9 +51,9 @@ func CreateLogAgent(dataPath string) (agent *LogAgent, err error) {
 	var today = time.Now().Truncate(Day)
 	var monthPath = filepath.Join(agent.logRoot, today.Format(MonthFormat))
 	agent.currentLogPath = filepath.Join(monthPath, fmt.Sprintf("%s.log", today.Format(DateFormat)))
-	if _, err = os.Stat(agent.currentLogPath); os.IsNotExist(err){
-		if _, err = os.Stat(monthPath); os.IsNotExist(err){
-			if err = os.Mkdir(monthPath, DefaultPathPerm); err != nil{
+	if _, err = os.Stat(agent.currentLogPath); os.IsNotExist(err) {
+		if _, err = os.Stat(monthPath); os.IsNotExist(err) {
+			if err = os.Mkdir(monthPath, DefaultPathPerm); err != nil {
 				return
 			}
 			log.Printf("<log> new log path '%s' created", monthPath)
@@ -72,17 +72,17 @@ func CreateLogAgent(dataPath string) (agent *LogAgent, err error) {
 	{
 		var scanSource *os.File
 		scanSource, err = os.Open(agent.currentLogPath)
-		if err != nil{
+		if err != nil {
 			return
 		}
 		defer scanSource.Close()
 		var scanner = bufio.NewScanner(scanSource)
-		for scanner.Scan(){
+		for scanner.Scan() {
 			var line = scanner.Text()
 			agent.logContent = append(agent.logContent, line)
-			if !entryAvailable{
+			if !entryAvailable {
 				lastEntry, err = parseLog(line)
-				if err != nil{
+				if err != nil {
 					return
 				}
 				entryAvailable = true
@@ -91,16 +91,16 @@ func CreateLogAgent(dataPath string) (agent *LogAgent, err error) {
 
 	}
 
-	if entryAvailable{
+	if entryAvailable {
 		agent.currentTime = lastEntry.Time.Truncate(time.Second)
 		agent.currentIndex, err = strconv.Atoi(lastEntry.ID[len(EntryPrefixFormat):])
-		if err != nil{
+		if err != nil {
 			log.Printf("<log> parse index from entry '%s' fail: %s", lastEntry.ID, err.Error())
 			return
 		}
 		log.Printf("<log> last entry '%s' (%d available) loaded from '%s'", lastEntry.ID, len(agent.logContent), agent.currentLogPath)
 
-	}else{
+	} else {
 		agent.currentTime = time.Now().Truncate(time.Second)
 		agent.currentIndex = InitialEntryIndex
 	}
@@ -115,14 +115,14 @@ func (agent *LogAgent) Write(content string) (err error) {
 	if entryTimeStamp.Equal(agent.currentTime) {
 		entry.ID = fmt.Sprintf("%s%03d", entryTimeStamp.Format(EntryPrefixFormat), agent.currentIndex)
 		agent.currentIndex++
-	}else{
-		if !now.Truncate(24*time.Hour).Equal(agent.currentTime.Truncate(24*time.Hour)){
+	} else {
+		if !now.Truncate(24 * time.Hour).Equal(agent.currentTime.Truncate(24 * time.Hour)) {
 			//open new file for a new day
-			if err = agent.Close(); err != nil{
+			if err = agent.Close(); err != nil {
 				return
 			}
 			agent.currentLogPath = filepath.Join(agent.logRoot, now.Format(MonthFormat), fmt.Sprintf("%s.log", now.Format(DateFormat)))
-			if err = agent.openCurrentLog(); err != nil{
+			if err = agent.openCurrentLog(); err != nil {
 				return
 			}
 			agent.logContent = make([]string, 0)
@@ -137,7 +137,7 @@ func (agent *LogAgent) Write(content string) (err error) {
 	entry.Content = content
 	//insert
 	agent.logContent = append([]string{logToLine(entry)}, agent.logContent...)
-	if !agent.contentModified{
+	if !agent.contentModified {
 		agent.contentModified = true
 	}
 	return nil
@@ -150,40 +150,40 @@ func (agent *LogAgent) Remove(idList []string) (err error) {
 	)
 	var currentLocation = time.Now().Location()
 	var targetMap = map[string]map[string]bool{}
-	for _, entryID := range idList{
-		if len(entryID) != (len(EntryPrefixFormat) + IndexLength){
+	for _, entryID := range idList {
+		if len(entryID) != (len(EntryPrefixFormat) + IndexLength) {
 			err = fmt.Errorf("invalid entry id '%s' with length %d", entryID, len(entryID))
 			return
 		}
 		timeStamp, err := time.ParseInLocation(EntryPrefixFormat, entryID[:len(EntryPrefixFormat)], currentLocation)
-		if err != nil{
+		if err != nil {
 			err = fmt.Errorf("invalid entry id prefix '%s'", entryID[:len(EntryPrefixFormat)])
 			return err
 		}
 		var dayString = timeStamp.Format(DateFormat)
-		if _, exists := targetMap[dayString]; !exists{
+		if _, exists := targetMap[dayString]; !exists {
 			targetMap[dayString] = map[string]bool{entryID: true}
-		}else{
+		} else {
 			targetMap[dayString][entryID] = true
 		}
 	}
-	for dayString, targets := range targetMap{
+	for dayString, targets := range targetMap {
 		var month = dayString[:MonthPrefixLength]
 		var logFilePath = filepath.Join(agent.logRoot, month, fmt.Sprintf("%s.log", dayString))
-		if _, err = os.Stat(logFilePath); os.IsNotExist(err){
+		if _, err = os.Stat(logFilePath); os.IsNotExist(err) {
 			err = fmt.Errorf("can not find log file '%s'", logFilePath)
 			return
 		}
 		var isCurrentLog = logFilePath == agent.currentLogPath
 
 		var logLines []string
-		if isCurrentLog{
+		if isCurrentLog {
 			logLines = agent.logContent
-		}else{
+		} else {
 			//load all entries
 			var logFile *os.File
 			logFile, err = os.Open(logFilePath)
-			if err != nil{
+			if err != nil {
 				err = fmt.Errorf("open log file fail: %s", err.Error())
 				return err
 			}
@@ -194,36 +194,36 @@ func (agent *LogAgent) Remove(idList []string) (err error) {
 			logFile.Close()
 		}
 		var removeResult = make([]string, 0)
-		for _, line := range logLines{
+		for _, line := range logLines {
 			entry, err := parseLog(line)
-			if err != nil{
+			if err != nil {
 				return err
 			}
-			if _, exists := targets[entry.ID]; exists{
+			if _, exists := targets[entry.ID]; exists {
 				delete(targets, entry.ID)
 				log.Printf("<log> entry '%s' removed from '%s'", entry.ID, logFilePath)
-			}else{
+			} else {
 				removeResult = append(removeResult, line)
 			}
 		}
-		if isCurrentLog{
+		if isCurrentLog {
 			agent.logContent = removeResult
 			agent.contentModified = true
-		}else{
+		} else {
 			//rewrite all lines
 			var logFile *os.File
 			logFile, err = os.OpenFile(logFilePath, os.O_WRONLY|os.O_APPEND|os.O_TRUNC, OpenFilePerm)
-			if err != nil{
+			if err != nil {
 				err = fmt.Errorf("rewrite log file fail: %s", err.Error())
 				return err
 			}
 			var writer = bufio.NewWriter(logFile)
-			for _, line := range removeResult{
+			for _, line := range removeResult {
 				_, err = writer.WriteString(line)
-				if err != nil{
+				if err != nil {
 					return err
 				}
-				if err = writer.WriteByte('\n'); err != nil{
+				if err = writer.WriteByte('\n'); err != nil {
 					return err
 				}
 			}
@@ -241,72 +241,71 @@ func (agent *LogAgent) Query(condition LogQueryCondition) (logs []LogEntry, tota
 		MaxEntry = 1000
 	)
 	total = 0
-	if condition.EndTime.Before(condition.BeginTime){
+	if condition.EndTime.Before(condition.BeginTime) {
 		err = fmt.Errorf("invalid time range (%s ~ %s)", condition.BeginTime.Format(TimeFormatLayout), condition.EndTime.Format(TimeFormatLayout))
 		return
 	}
 	var queried, offset = 0, 0
 	var inTimeRange = false
-	for date := condition.EndTime; date.After(condition.BeginTime); date = date.Add(-Day){
+	for date := condition.EndTime; date.After(condition.BeginTime); date = date.Add(-Day) {
 		var logFilePath = filepath.Join(agent.logRoot, date.Format(MonthFormat), fmt.Sprintf("%s.log", date.Format(DateFormat)))
 
 		var isCurrentLog = logFilePath == agent.currentLogPath
 		var logLines []string
-		if isCurrentLog{
+		if isCurrentLog {
 			logLines = agent.logContent
 			//log.Printf("<log> debug: %d lines loaded from current log", len(logLines))
-		}else{
-			if _, err = os.Stat(logFilePath); os.IsNotExist(err){
+		} else {
+			if _, err = os.Stat(logFilePath); os.IsNotExist(err) {
 				//log.Printf("<log> warning: query ignores absent log '%s'", logFilePath)
 				continue
 			}
 			var logFile *os.File
 			logFile, err = os.Open(logFilePath)
-			if err != nil{
+			if err != nil {
 				return
 			}
 			var scanner = bufio.NewScanner(logFile)
-			for scanner.Scan(){
+			for scanner.Scan() {
 				logLines = append(logLines, scanner.Text())
 			}
 			logFile.Close()
 		}
 
-
 		for _, line := range logLines {
 			var entry LogEntry
 			entry, err = parseLog(line)
-			if err != nil{
+			if err != nil {
 				log.Printf("<log> parse line %d of log '%s' fail: %s", offset, logFilePath, err.Error())
 				return
 			}
 			if !inTimeRange {
-				if entry.Time.Before(condition.EndTime){
+				if entry.Time.Before(condition.EndTime) {
 					//range start
 					inTimeRange = true
 				}
 			}
-			if inTimeRange{
-				if offset < condition.Start{
+			if inTimeRange {
+				if offset < condition.Start {
 					total++
 					offset++
 					continue
 				}
-				if entry.Time.Before(condition.BeginTime){
+				if entry.Time.Before(condition.BeginTime) {
 					break
 				}
-				if total >= MaxEntry{
+				if total >= MaxEntry {
 					break
 				}
 				total++
-				if queried < condition.Limit{
+				if queried < condition.Limit {
 					//store log
 					logs = append(logs, entry)
 					queried++
 				}
 			}
-		}//end scanner
-		if total >= MaxEntry{
+		} //end scanner
+		if total >= MaxEntry {
 			break
 		}
 	}
@@ -315,50 +314,50 @@ func (agent *LogAgent) Query(condition LogQueryCondition) (logs []LogEntry, tota
 	//	condition.BeginTime.Format(TimeFormatLayout),
 	//	condition.EndTime.Format(TimeFormatLayout),
 	//	condition.Start, condition.Limit)
-	return logs, total,nil
+	return logs, total, nil
 }
 
-func (agent *LogAgent) Flush() (err error){
-	if !agent.contentModified{
+func (agent *LogAgent) Flush() (err error) {
+	if !agent.contentModified {
 		return nil
 	}
-	if _, err = agent.currentFile.Seek(0, io.SeekStart); err != nil{
+	if _, err = agent.currentFile.Seek(0, io.SeekStart); err != nil {
 		return
 	}
 	agent.fileWriter.Reset(agent.currentFile)
-	for _, log := range agent.logContent{
-		if _, err = agent.fileWriter.WriteString(log); err != nil{
+	for _, log := range agent.logContent {
+		if _, err = agent.fileWriter.WriteString(log); err != nil {
 			return
 		}
-		if _, err = agent.fileWriter.WriteString("\n"); err != nil{
+		if _, err = agent.fileWriter.WriteString("\n"); err != nil {
 			return
 		}
 	}
-	if err = agent.fileWriter.Flush(); err != nil{
+	if err = agent.fileWriter.Flush(); err != nil {
 		return
 	}
 	agent.contentModified = false
 	return nil
 }
 
-func (agent *LogAgent) Close() (err error){
-	if err = agent.Flush(); err != nil{
+func (agent *LogAgent) Close() (err error) {
+	if err = agent.Flush(); err != nil {
 		return
 	}
 	return agent.closeCurrentLog()
 }
 
-func (agent *LogAgent) openCurrentLog() (err error){
-	if _, err = os.Stat(agent.currentLogPath); os.IsNotExist(err){
+func (agent *LogAgent) openCurrentLog() (err error) {
+	if _, err = os.Stat(agent.currentLogPath); os.IsNotExist(err) {
 		agent.currentFile, err = os.Create(agent.currentLogPath)
-		if err != nil{
+		if err != nil {
 			return
 		}
 		log.Printf("<log> current log '%s' created", agent.currentLogPath)
-	}else{
+	} else {
 		//open
 		agent.currentFile, err = os.OpenFile(agent.currentLogPath, os.O_RDWR|os.O_CREATE, OpenFilePerm)
-		if err != nil{
+		if err != nil {
 			return
 		}
 		log.Printf("<log> current log '%s' opened", agent.currentLogPath)
@@ -367,11 +366,11 @@ func (agent *LogAgent) openCurrentLog() (err error){
 	return nil
 }
 
-func (agent *LogAgent) closeCurrentLog() (err error){
-	if err = agent.fileWriter.Flush(); err != nil{
+func (agent *LogAgent) closeCurrentLog() (err error) {
+	if err = agent.fileWriter.Flush(); err != nil {
 		return
 	}
-	if err = agent.currentFile.Close(); err != nil{
+	if err = agent.currentFile.Close(); err != nil {
 		return
 	}
 	agent.currentFile = nil
@@ -388,21 +387,21 @@ func parseLog(line string) (entry LogEntry, err error) {
 		err = fmt.Errorf("entry ID missed in line %s", line)
 		return
 	}
-	if idTail != ValidEntryIDLength{
+	if idTail != ValidEntryIDLength {
 		err = fmt.Errorf("invalid entry ID '%s'", line[:idTail])
 		return
 	}
 	entry.ID = line[:idTail]
-	var timeTail = strings.Index(line[(idTail + 1):], separator)
-	if timeTail <= 0{
+	var timeTail = strings.Index(line[(idTail+1):], separator)
+	if timeTail <= 0 {
 		err = fmt.Errorf("entry time missed in line %s", line)
 		return
 	}
 
-	var timeInString = line[(idTail + 1): (idTail + 1 + timeTail)]
+	var timeInString = line[(idTail + 1):(idTail + 1 + timeTail)]
 	var unixnano int64
 	unixnano, err = strconv.ParseInt(timeInString, 10, 64)
-	if err != nil{
+	if err != nil {
 		err = fmt.Errorf("invalid time stamp '%s'", timeInString)
 		return
 	}
@@ -411,6 +410,6 @@ func parseLog(line string) (entry LogEntry, err error) {
 	return entry, nil
 }
 
-func logToLine(entry LogEntry) (line string){
+func logToLine(entry LogEntry) (line string) {
 	return fmt.Sprintf("%s,%d,%s", entry.ID, entry.Time.UnixNano(), entry.Content)
 }
