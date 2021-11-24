@@ -190,7 +190,7 @@ func InterfaceByAddress(address string) (inf *net.Interface, err error) {
 	return
 }
 
-func (endpoint *EndpointService) GenerateName(t ServiceType, i *net.Interface) error {
+func (endpoint *EndpointService) GenerateName(t ServiceType, inf *net.Interface) error {
 	const hexDigit = "0123456789abcdef"
 	var prefix string
 	switch t {
@@ -207,10 +207,12 @@ func (endpoint *EndpointService) GenerateName(t ServiceType, i *net.Interface) e
 		return fmt.Errorf("unsupported service type %d", t)
 	}
 	var buf []byte
-	for _, b := range i.HardwareAddr {
-		buf = append(buf, hexDigit[b>>4])
-		buf = append(buf, hexDigit[b&0xF])
-	}
+	// for _, b := range inf.HardwareAddr {
+	// 	buf = append(buf, hexDigit[b>>4])
+	// 	buf = append(buf, hexDigit[b&0xF])
+	// }
+	buf = append(buf, hexDigit[4])
+	buf = append(buf, hexDigit[6])
 	endpoint.serviceType = t
 	endpoint.name = fmt.Sprintf("%s_%s", prefix, string(buf))
 	return nil

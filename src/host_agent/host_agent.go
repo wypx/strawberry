@@ -37,7 +37,7 @@ type MainService struct {
 }
 
 const (
-	ProjectName          = "nano"
+	ProjectName          = "host_agent"
 	ExecuteName          = "core"
 	DomainConfigFileName = "domain.cfg"
 	APIConfigFilename    = "api.cfg"
@@ -108,6 +108,7 @@ func createDaemon(workingPath string) (service vm_utils.DaemonizedService, err e
 			log.Printf("data path '%s' created", dataPath)
 		}
 	}
+	config.ListenAddress = "192.168.176.2"
 	var inf *net.Interface
 	inf, err = vm_utils.InterfaceByAddress(config.ListenAddress)
 	if err != nil {
@@ -222,14 +223,16 @@ func generateImageConfig(workingPath, configPath string) (err error) {
 		RootPath     = "/opt"
 		CertPathName = "cert"
 	)
-	//cert file
-	var certFileName = fmt.Sprintf("%s_image.crt.pem", ProjectName)
-	var keyFileName = fmt.Sprintf("%s_image.key.pem", ProjectName)
+	// //cert file
+	// var certFileName = fmt.Sprintf("%s_image.crt.pem", ProjectName)
+	// var keyFileName = fmt.Sprintf("%s_image.key.pem", ProjectName)
 
-	var generatedCertFile = filepath.Join(workingPath, CertPathName, certFileName)
-	var generatedKeyFile = filepath.Join(workingPath, CertPathName, keyFileName)
+	// var generatedCertFile = filepath.Join(workingPath, CertPathName, certFileName)
+	// var generatedKeyFile = filepath.Join(workingPath, CertPathName, keyFileName)
+	var generatedCertFile = "/root/work/strawberry/bin/config/image.crt.pem"
+	var generatedKeyFile = "/root/work/strawberry/bin/config/image.key.pem"
 	if _, err = os.Stat(generatedCertFile); os.IsNotExist(err) {
-		fmt.Println("No cert file available, following instructions to generate a new one.")
+		fmt.Println("no cert file available, following instructions to generate a new one.")
 		var certPath = filepath.Join(workingPath, CertPathName)
 		//generate new cert & key pair
 		if _, err = os.Stat(certPath); os.IsNotExist(err) {
@@ -239,13 +242,15 @@ func generateImageConfig(workingPath, configPath string) (err error) {
 				fmt.Printf("cert path '%s' created\n", certPath)
 			}
 		}
-		var defaultRootCertPath = filepath.Join(RootPath, ProjectName, CertPathName)
-		var rootCertPath string
-		if rootCertPath, err = vm_utils.InputString("Root Cert File Location", defaultRootCertPath); err != nil {
-			return
-		}
-		var rootCertFile = filepath.Join(rootCertPath, fmt.Sprintf("%s_ca.crt.pem", ProjectName))
-		var rootKeyFile = filepath.Join(rootCertPath, fmt.Sprintf("%s_ca.key.pem", ProjectName))
+		// var defaultRootCertPath = filepath.Join(RootPath, ProjectName, CertPathName)
+		// var rootCertPath string = defaultRootCertPath
+		// if rootCertPath, err = vm_utils.InputString("Root Cert File Location", defaultRootCertPath); err != nil {
+		// 	return
+		// }
+		// var rootCertFile = filepath.Join(rootCertPath, fmt.Sprintf("%s_ca.crt.pem", ProjectName))
+		// var rootKeyFile = filepath.Join(rootCertPath, fmt.Sprintf("%s_ca.key.pem", ProjectName))
+		var rootCertFile = "/root/work/strawberry/bin/config/ca.crt.pem"
+		var rootKeyFile = "/root/work/strawberry/bin/config/ca.key.pem"
 		if _, err = os.Stat(rootCertFile); os.IsNotExist(err) {
 			return
 		}
@@ -256,7 +261,8 @@ func generateImageConfig(workingPath, configPath string) (err error) {
 		if localAddress, err = vm_utils.ChooseIPV4Address("Image Server Address"); err != nil {
 			return
 		}
-		if err = signImageCertificate(rootCertFile, rootKeyFile, localAddress, generatedCertFile, generatedKeyFile); err != nil {
+		if err = signImageCertificate(rootCertFile, rootKeyFile,
+			localAddress, generatedCertFile, generatedKeyFile); err != nil {
 			return
 		}
 	}
@@ -350,6 +356,30 @@ func signImageCertificate(caCert, caKey, localAddress, certPath, keyPath string)
 	return nil
 }
 
+func getWorkingPath() (path string, err error) {
+	executable, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Abs(filepath.Dir(executable))
+}
+
 func Initialize() {
-	vm_utils.ProcessDaemon(ExecuteName, generateConfigure, createDaemon)
+	// vm_utils.ProcessDaemon(ExecuteName, generateConfigure, createDaemon)
+
+	workingPath, err := getWorkingPath()
+	if err != nil {
+		fmt.Printf("get working path fail: %s\n", err.Error())
+		return
+	}
+	if err := generateConfigure(workingPath); err != nil {
+		fmt.Printf("generate config fail: %s\n", err.Error())
+		return
+	}
+	daemonizedService, err := createDaemon(workingPath)
+	if daemonizedService == nil || err != nil {
+		log.Printf("generate service fail: %s", err.Error())
+		return
+	}
+	log.Printf("host agent started\n")
 }

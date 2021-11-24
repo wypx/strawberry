@@ -1,4 +1,4 @@
-package main
+package vm_admin2
 
 import (
 	"time"

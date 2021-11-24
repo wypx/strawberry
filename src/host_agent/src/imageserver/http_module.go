@@ -148,7 +148,7 @@ func syncCertificateAddress(configPath, certPath, keyPath, host string) (err err
 
 	const (
 		CertPathName         = "cert"
-		ProjectName          = "nano"
+		ProjectName          = "host_agent"
 		DefaultDurationYears = 99
 		RSAKeyBits           = 2048
 		CertSerialNumber     = 1700

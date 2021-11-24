@@ -1,4 +1,4 @@
-package main
+package vm_admin2
 
 import (
 	"bytes"
@@ -117,7 +117,9 @@ func CreateFrontEnd(configPath, dataPath string) (service *FrontEndService, err 
 		err = errors.New("API Key required")
 		return
 	}
-	var webRoot = config.WebRoot
+	// var webRoot = config.WebRoot
+	var webRoot = "/root/work/strawberry/src/vm_admin2/web_root"
+
 	if 0 == len(webRoot) {
 		var workingPath = filepath.Dir(configPath)
 		config.WebRoot = filepath.Join(workingPath, WebRootName)

@@ -1,12 +1,17 @@
 package vm_admin2
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
+	"time"
 	"vm_manager/vm_utils"
 )
 
@@ -57,6 +62,11 @@ func (service *MainService) Stop() (output string, err error) {
 	return
 }
 
+func (service *MainService) Snapshot() (output string, err error) {
+	fmt.Printf("Snapshot interface not implement\n")
+	return
+}
+
 func generateConfigure(workingPath string) (err error) {
 	const (
 		DefaultPathPerm = 0740
@@ -79,7 +89,8 @@ func generateConfigure(workingPath string) (err error) {
 			DefaultBackEndPort  = 5850
 			DefaultFrontEndPort = 5870
 		)
-		var defaultWebRoot = filepath.Join(workingPath, WebRootName)
+		// var defaultWebRoot = filepath.Join(workingPath, WebRootName)
+		var defaultWebRoot = "/root/work/strawberry/vm_admin2/web_root"
 		var config = FrontEndConfig{}
 		if config.ListenAddress, err = vm_utils.ChooseIPV4Address("Portal listen address"); err != nil {
 			return
@@ -93,6 +104,7 @@ func generateConfigure(workingPath string) (err error) {
 		if config.ServicePort, err = vm_utils.InputInteger("Backend service port", DefaultBackEndPort); err != nil {
 			return
 		}
+		fmt.Println("defaultWebRoot: " + defaultWebRoot)
 		if config.WebRoot, err = vm_utils.InputString("Web Root Path", defaultWebRoot); err != nil {
 			return
 		}
@@ -135,6 +147,46 @@ func createDaemon(workingPath string) (service vm_utils.DaemonizedService, err e
 	return &s, err
 }
 
+func getWorkingPath() (path string, err error) {
+	executable, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Abs(filepath.Dir(executable))
+}
+
 func Initialize() {
-	vm_utils.ProcessDaemon(ExecuteName, generateConfigure, createDaemon)
+	// vm_utils.ProcessDaemon(ExecuteName, generateConfigure, createDaemon)
+	workingPath, err := getWorkingPath()
+	if err != nil {
+		fmt.Printf("get working path fail: %s\n", err.Error())
+		return
+	}
+	if err := generateConfigure(workingPath); err != nil {
+		fmt.Printf("generate config fail: %s\n", err.Error())
+		return
+	}
+	daemonizedService, err := createDaemon(workingPath)
+	if daemonizedService == nil || err != nil {
+		log.Printf("generate service fail: %s", err.Error())
+		return
+	}
+	log.Printf("vm admin started\n")
+
+	// Wait for interrupt signal to gracefully shutdown the server with
+	// a timeout of 5 seconds.
+	quit := make(chan os.Signal, 1)
+	// kill (no param) default send syscall.SIGTERM
+	// kill -2 is syscall.SIGINT
+	// kill -9 is syscall.SIGKILL but can't be catch, so don't need add it
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutting down server...")
+
+	// The context is used to inform the server it has 5 seconds to finish
+	// the request it is currently handling
+	_, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	log.Println("Server exiting")
 }

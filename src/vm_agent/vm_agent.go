@@ -67,6 +67,14 @@ func (service *MainService) Snapshot() (output string, err error) {
 	return
 }
 
+func getWorkingPath() (path string, err error) {
+	executable, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Abs(filepath.Dir(executable))
+}
+
 func generateConfigure(workingPath string) (err error) {
 	if err = configureNetworkForCell(); err != nil {
 		fmt.Printf("configure cell network fail: %s\n", err.Error())
@@ -132,7 +140,7 @@ func createDaemon(workingPath string) (daemon VmUtils.DaemonizedService, err err
 	var inf *net.Interface
 	if inf, err = net.InterfaceByName(VmAgentSvc.DefaultBridgeName); err != nil {
 		err = fmt.Errorf("get default bridge fail: %s", err.Error())
-		return
+		// return
 	}
 	var s = MainService{}
 	if s.cell, err = CreateCellService(config, workingPath); err != nil {
@@ -381,5 +389,20 @@ func migrateInterfaceConfig(bridgeName string, ifcfg, brcfg *InterfaceConfig) (e
  */
 func Initialize() {
 	log.SetFlags(log.Ldate | log.Lmicroseconds)
-	VmUtils.ProcessDaemon(ExecuteName, generateConfigure, createDaemon)
+	// VmUtils.ProcessDaemon(ExecuteName, generateConfigure, createDaemon)
+	workingPath, err := getWorkingPath()
+	if err != nil {
+		fmt.Printf("get working path fail: %s\n", err.Error())
+		return
+	}
+	if err := generateConfigure(workingPath); err != nil {
+		fmt.Printf("generate config fail: %s\n", err.Error())
+		return
+	}
+	daemonizedService, err := createDaemon(workingPath)
+	if daemonizedService == nil || err != nil {
+		log.Printf("generate service fail: %s", err.Error())
+		return
+	}
+	log.Printf("vm agent started\n")
 }
