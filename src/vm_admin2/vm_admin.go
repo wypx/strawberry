@@ -173,6 +173,8 @@ func Initialize() {
 	}
 	log.Printf("vm admin started\n")
 
+	daemonizedService.Start()
+
 	// Wait for interrupt signal to gracefully shutdown the server with
 	// a timeout of 5 seconds.
 	quit := make(chan os.Signal, 1)

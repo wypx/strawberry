@@ -119,7 +119,6 @@ func CreateFrontEnd(configPath, dataPath string) (service *FrontEndService, err 
 	}
 	// var webRoot = config.WebRoot
 	var webRoot = "/root/work/strawberry/src/vm_admin2/web_root"
-
 	if 0 == len(webRoot) {
 		var workingPath = filepath.Dir(configPath)
 		config.WebRoot = filepath.Join(workingPath, WebRootName)
@@ -144,6 +143,7 @@ func CreateFrontEnd(configPath, dataPath string) (service *FrontEndService, err 
 	service.apiKey = config.APIKey
 	service.corsEnable = config.CORSEnable
 	service.listenAddress = fmt.Sprintf("%s:%d", config.ListenAddress, config.ListenPort)
+	fmt.Printf("service.listenAddress: %s\n", service.listenAddress)
 	service.serviceListener, err = net.Listen("tcp", service.listenAddress)
 	if err != nil {
 		return
@@ -166,7 +166,7 @@ func CreateFrontEnd(configPath, dataPath string) (service *FrontEndService, err 
 	service.spaPage = filepath.Join(webRoot, DefaultPageName)
 	err = filepath.Walk(webRoot, func(path string, info os.FileInfo, previousErr error) error {
 		if previousErr != nil {
-			return fmt.Errorf("encounter error in path '%s': %s", previousErr.Error())
+			return fmt.Errorf("encounter error in path '%s': %s", path, previousErr.Error())
 		}
 		if path == webRoot || filepath.Dir(path) != webRoot {
 			//ignore root
@@ -186,9 +186,11 @@ func CreateFrontEnd(configPath, dataPath string) (service *FrontEndService, err 
 			//log.Printf("<frontend> debug: mapped file '%s' => '%s'", fileURl, webRoot)
 			router.Handle("GET", fileURl, service.mapSingleFile)
 		}
+		fmt.Printf("111111111\n")
 		return nil
 	})
 	if err != nil {
+		fmt.Printf("2222222222\n")
 		return
 	}
 	router.NotFound = &Proxy{service}
@@ -198,13 +200,16 @@ func CreateFrontEnd(configPath, dataPath string) (service *FrontEndService, err 
 
 	service.userManager, err = CreateUserManager(configPath)
 	if err != nil {
+		fmt.Printf("333333333\n")
 		return
 	}
 	service.sessionManager, err = CreateSessionManager()
 	if err != nil {
+		fmt.Printf("4444444444\n")
 		return
 	}
 	if service.logManager, err = CreateLogManager(dataPath); err != nil {
+		fmt.Printf("5555555555\n")
 		return
 	}
 	service.userInitialed = service.userManager.IsUserAvailable()

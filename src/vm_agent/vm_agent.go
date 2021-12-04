@@ -404,5 +404,6 @@ func Initialize() {
 		log.Printf("generate service fail: %s", err.Error())
 		return
 	}
+	daemonizedService.Start()
 	log.Printf("vm agent started\n")
 }

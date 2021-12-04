@@ -1,0 +1,99 @@
+{
+ "zone": "default",
+ "pools": [
+  {
+   "name": "default",
+   "enabled": true,
+   "network": "luotang-vpc",
+   "storage": "luotang-nfs",
+   "failover": true
+  }
+ ],
+ "storage_pools": [
+  {
+   "name": "luotang-nfs",
+   "type": "nfs",
+   "host": "192.168.2.1",
+   "target": "/var/tmp/nfs"
+  }
+ ],
+ "address_pools": [
+  {
+   "name": "luotang-vpc",
+   "gateway": "192.168.2.1",
+   "dns": [
+    "192.168.2.1"
+   ],
+   "provider": "dhcp"
+  }
+ ],
+ "system_templates": [
+  {
+   "id": "c6fi0l5gs47fgc1eitg0",
+   "name": "CentOS 7",
+   "admin": "root",
+   "operating_system": "linux",
+   "disk": "scsi",
+   "network": "virtio",
+   "display": "vga",
+   "control": "vnc",
+   "usb": "nec-xhci",
+   "tablet": "usb",
+   "created_time": "2021-11-25 13:34:12",
+   "modified_time": "2021-11-25 13:34:12"
+  },
+  {
+   "id": "c6fi0l5gs47fgc1eitgg",
+   "name": "CentOS 6",
+   "admin": "root",
+   "operating_system": "linux",
+   "disk": "sata",
+   "network": "virtio",
+   "display": "vga",
+   "control": "vnc",
+   "usb": "nec-xhci",
+   "tablet": "usb",
+   "created_time": "2021-11-25 13:34:12",
+   "modified_time": "2021-11-25 13:34:12"
+  },
+  {
+   "id": "c6fi0l5gs47fgc1eith0",
+   "name": "Windows Server 2012",
+   "admin": "Administrator",
+   "operating_system": "windows",
+   "disk": "sata",
+   "network": "e1000",
+   "display": "vga",
+   "control": "vnc",
+   "usb": "nec-xhci",
+   "tablet": "usb",
+   "created_time": "2021-11-25 13:34:12",
+   "modified_time": "2021-11-25 13:34:12"
+  },
+  {
+   "id": "c6fi0l5gs47fgc1eithg",
+   "name": "General",
+   "admin": "root",
+   "operating_system": "linux",
+   "disk": "sata",
+   "network": "rtl8139",
+   "display": "vga",
+   "control": "vnc",
+   "tablet": "usb",
+   "created_time": "2021-11-25 13:34:12",
+   "modified_time": "2021-11-25 13:34:12"
+  },
+  {
+   "id": "c6fi0l5gs47fgc1eiti0",
+   "name": "Legacy",
+   "admin": "root",
+   "operating_system": "linux",
+   "disk": "ide",
+   "network": "rtl8139",
+   "display": "cirrus",
+   "control": "vnc",
+   "created_time": "2021-11-25 13:34:12",
+   "modified_time": "2021-11-25 13:34:12"
+  }
+ ]
+}

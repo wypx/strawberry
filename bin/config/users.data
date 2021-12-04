@@ -1,0 +1,45 @@
+{
+ "roles": [
+  {
+   "name": "super",
+   "menu": [
+    "dashboard",
+    "compute_pool",
+    "address_pool",
+    "storage_pool",
+    "instance",
+    "image",
+    "media",
+    "templates",
+    "policies",
+    "user",
+    "log",
+    "visibility"
+   ]
+  }
+ ],
+ "groups": [
+  {
+   "name": "admin",
+   "display": "Adminitrators of Nano Portal",
+   "role": [
+    "super"
+   ],
+   "members": [
+    "admin"
+   ],
+   "visibility": {}
+  }
+ ],
+ "users": [
+  {
+   "name": "admin",
+   "group": "admin",
+   "secret": {
+    "method": 0,
+    "salt": "u7XyiUjb6PcHBYNGA7bElJsJo4xJLYvFzVUWEu0TXO8=",
+    "hash": "$2a$10$kTassnnZisYvFKhbjSvvgOBmNVm2Sw/5kXHLyQyBpGlNm37TSDEEO"
+   }
+  }
+ ]
+}
