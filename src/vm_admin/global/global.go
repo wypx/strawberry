@@ -23,11 +23,13 @@ type Config struct {
 	WebDownloadPath string `yaml:"web-download-path"`
 	LoggerPath      string `yaml:"logger-path"`
 	LoggerLevel     string `yaml:"logger-level"`
+	Gzip            bool   `yaml:"Gzip"`
 }
 
 type Environment struct {
-	cfg Config
-	db  *gorm.DB
+	cfg  Config
+	db   *gorm.DB
+	Gzip bool
 }
 
 var env Environment

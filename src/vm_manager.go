@@ -3,10 +3,14 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
+	"os"
+	"runtime"
 	HostAgent "vm_manager/host_agent"
 
-	// VmAdmin "vm_manager/vm_admin"
+	VmAdmin "vm_manager/vm_admin"
 	VmAdmin2 "vm_manager/vm_admin2"
+
 	VmAgent "vm_manager/vm_agent"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -29,10 +33,18 @@ func TelegramBot() {
 
 	for update := range updates {
 		if update.Message != nil { // If we got a message
-			fmt.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
+			fmt.Printf("[%s] %s\n", update.Message.From.UserName, update.Message.Text)
 
 			msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
 			msg.ReplyToMessageID = update.Message.MessageID
+
+			fmt.Println(runtime.GOROOT())      // GO 路径
+			fmt.Println(runtime.Version())     //GO 版本信息 go1.9
+			fmt.Println(os.Hostname())         //获得PC名
+			fmt.Println(net.Interfaces())      //获得网卡信息
+			fmt.Println(runtime.GOARCH)        //系统构架 386、amd64
+			fmt.Println(runtime.GOOS)          //系统版本 windows
+			fmt.Println(runtime.GOMAXPROCS(0)) //系统版本 windows
 
 			bot.Send(msg)
 		}
@@ -40,13 +52,16 @@ func TelegramBot() {
 }
 
 func main() {
-	TelegramBot()
+	// TelegramBot()
 	log.Printf("vm manager start\n")
-	// VmAdmin.Initialize()
 	VmAgent.Initialize()
 	HostAgent.Initialize()
 	// host_agent.Initialize()
 	// vm_admin.Initialize()
-	VmAdmin2.Initialize()
+	go func() {
+		VmAdmin2.Initialize()
+	}()
+
+	VmAdmin.Initialize()
 	log.Printf("vm manager exit\n")
 }

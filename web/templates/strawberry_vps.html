@@ -1,0 +1,124 @@
+{{ define "strawberry_vps" }}
+<!DOCTYPE html>
+<html class="no-js css-menubar" lang="zh">
+
+  {{template "strawberry_header" .}}
+
+  <body class="animsition dashboard">
+  
+    {{template "strawberry_top" .}}
+    {{template "strawberry_left" .}}
+    {{template "strawberry_grid" .}}
+
+    <!-- Page -->
+    <div id="strawberry_app">
+    <div class="page">
+      <div class="page-content container-fluid">
+        <div class="row" data-plugin="matchHeight" data-by-row="true">
+           <!--[if lt IE 8]>
+           <div class="alert alert-alt alert-primary alert-dismissible" role="alert">
+            <strong>INFO : </strong>请及时升级更新浏览器, 使用
+            <a class="alert-link" href="https://luotang.me">'Goole-Chrome'</a>
+            替代它.
+          </div>
+          <![endif]-->
+          <div class="alert alert-alt alert-primary alert-dismissible" role="alert">
+            <strong>INFO : </strong>正使用老旧浏览器, 请及时升级更新, 使用
+            <a class="alert-link" href="https://luotang.me">'Goole-Chrome'</a>
+            替代它.
+          </div>
+
+          <div class="col-lg-8" id="ecommerceRecentOrder">
+            <div class="card card-shadow table-row">
+              <div class="card-header card-header-transparent py-20">
+                <div class="btn-group dropdown">
+                  <a href="#" class="text-body dropdown-toggle blue-grey-700" data-toggle="dropdown">主机列表</a>
+                  <div class="dropdown-menu animate" role="menu">
+                    <a class="dropdown-item" href="#" role="menuitem">Sales</a>
+                    <a class="dropdown-item" href="#" role="menuitem">Total sales</a>
+                    <a class="dropdown-item" href="#" role="menuitem">profit</a>
+                  </div>
+                </div>
+              </div>
+              <div class="card-block bg-white table-responsive">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>名字</th>
+                      <th>镜像</th>
+                      <th>IP</th>
+                      <th>登录</th>
+                      <th>状态</th>
+                      <th>镜像</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>
+                        <img src="/web/remark/classic/base/assets/examples/images/products/imac.png"
+                          alt="iMac" />
+                      </td>
+                      <td>iMac</td>
+                      <td>Russell</td>
+                      <td>22/08/2018</td>
+                      <td>
+                        <span class="badge badge-success font-weight-100">Paid</span>
+                      </td>
+                      <td>#98BC85SD84</td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <img src="/web/remark/classic/base/assets/examples/images/products/iphone.png"
+                          alt="iPhone" />
+                      </td>
+                      <td>iPhone</td>
+                      <td>Carol</td>
+                      <td>15/07/2018</td>
+                      <td>
+                        <span class="badge badge-warning font-weight-100">Pending</span>
+                      </td>
+                      <td>#98SA3C9SC</td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <img src="/web/remark/classic/base/assets/examples/images/products/applewatch.png"
+                          alt="apple_watch" />
+                      </td>
+                      <td>apple Watch</td>
+                      <td>Austin Pena</td>
+                      <td>10/07/2018</td>
+                      <td>
+                        <span class="badge badge-success font-weight-100">Paid</span>
+                      </td>
+                      <td>#98BC85SD84</td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <img src="/web/remark/classic/base/assets/examples/images/products/macmouse.png"
+                          alt="mac_mouse" />
+                      </td>
+                      <td>mac Mouse</td>
+                      <td>Randy</td>
+                      <td>22/04/2018</td>
+                      <td>
+                        <span class="badge badge-default font-weight-100">Failed</span>
+                      </td>
+                      <td>#98SA3C9SC</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- TODO -->
+        </div>
+      </div>
+    </div>
+    </div>
+    <!-- End Page -->
+
+    {{template "strawberry_footer" .}}
+  </body>
+</html>
+{{ end }}

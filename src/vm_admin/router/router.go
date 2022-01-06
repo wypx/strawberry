@@ -9,9 +9,11 @@ import (
 	Global "vm_manager/vm_admin/global"
 
 	"github.com/fatih/color"
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	cors "github.com/rs/cors/wrapper/gin"
 	"go.uber.org/ratelimit"
 )
 
@@ -251,6 +253,14 @@ func InitializeRouter(env *Global.Environment) *gin.Engine {
 	// Recovery 中间件会 recover 任何 panic。如果有 panic 的话，会写入 500。
 	router.Use(gin.Recovery())
 
+	router.Use(cors.New(cors.Options{
+		AllowedHeaders: []string{"pass"}, // 允许 header
+	}))
+
+	if env.Gzip == true {
+		router.Use(gzip.Gzip(gzip.DefaultCompression))
+	}
+
 	// add timeout middleware with 2 second duration
 	router.Use(TimeoutMiddleware(time.Second * 10))
 
@@ -373,6 +383,12 @@ func InitializeRouter(env *Global.Environment) *gin.Engine {
 		Mobile := new(Mobile)
 		mobile.GET("/", Mobile.Dial)
 		mobile.POST("/", Mobile.Dial)
+	}
+
+	vps := router.Group("/vps")
+	{
+		vps.GET("/", PageVPS)
+		vps.POST("/", PageVPS)
 	}
 
 	user := router.Group("/user")

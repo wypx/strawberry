@@ -28,7 +28,11 @@
    "members": [
     "admin"
    ],
-   "visibility": {}
+   "visibility": {
+    "instance_visible": true,
+    "disk_image_visible": true,
+    "media_image_visible": true
+   }
   }
  ],
  "users": [

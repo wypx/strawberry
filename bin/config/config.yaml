@@ -1,7 +1,7 @@
 # Stawberry Global Configuration
 # Change to "public/develop" to skip authentication for development mode
 web-server-env: 'develop'  
-web-server-addr: ':8080'
+web-server-addr: ':80'
 database-type: 'mongo'
 database-addr: '127.0.0.1'
 database-port: 8888
